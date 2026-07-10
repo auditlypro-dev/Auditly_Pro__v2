@@ -36,8 +36,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // Routes
 // ==========================================
 
-
-
+const billingRoutes = require("./routes/billing");
+const apiRoutes = require("./routes/api");
 const authRoutes = require("./routes/auth");
 const dashboardRoutes = require("./routes/dashboard");
 app.use("/auth", authRoutes);
