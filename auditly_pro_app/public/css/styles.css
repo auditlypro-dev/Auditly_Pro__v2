@@ -1,0 +1,59 @@
+/* ==========================================
+   Auditly Pro v2 Styles
+========================================== */
+
+body {
+
+    font-family: Arial, sans-serif;
+
+    background: #f5f7fa;
+
+    margin: 0;
+
+    padding: 0;
+
+}
+
+
+.dashboard-container {
+
+    max-width: 900px;
+
+    margin: 40px auto;
+
+    padding: 20px;
+
+}
+
+
+.card {
+
+    background: white;
+
+    padding: 20px;
+
+    margin: 20px 0;
+
+    border-radius: 10px;
+
+}
+
+
+.status-online {
+
+    color: green;
+
+    font-weight: bold;
+
+}
+
+
+button {
+
+    padding: 12px 20px;
+
+    border-radius: 6px;
+
+    cursor: pointer;
+
+}
