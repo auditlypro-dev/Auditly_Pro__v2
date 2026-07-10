@@ -39,7 +39,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 
 const authRoutes = require("./routes/auth");
-
+const dashboardRoutes = require("./routes/dashboard");
 app.use("/auth", authRoutes);
 app.use("/auth", authRoutes);
 
