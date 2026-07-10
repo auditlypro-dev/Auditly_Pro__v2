@@ -41,7 +41,9 @@ const dashboardRoutes = require("./routes/dashboard");
 const apiRoutes = require("./routes/api");
 const billingRoutes = require("./routes/billing");
 
+const authRoutes = require("./routes/auth");
 
+app.use("/auth", authRoutes);
 app.use("/auth", authRoutes);
 
 app.use("/dashboard", dashboardRoutes);
