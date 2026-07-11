@@ -23,7 +23,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "public")));
-
+app.use("/auth", authRoutes);
+app.use("/dashboard", dashboardRoutes);
+app.use("/api", apiRoutes);
+app.use("/billing", billingRoutes);
 
 // Routes
 
