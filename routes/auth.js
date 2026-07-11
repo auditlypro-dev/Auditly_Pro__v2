@@ -119,5 +119,7 @@ console.log(shopData);
 
 });
 
-
+router.get("/test", (req, res) => {
+    res.send("AUTH ROUTER IS WORKING");
+});
 module.exports = router;
