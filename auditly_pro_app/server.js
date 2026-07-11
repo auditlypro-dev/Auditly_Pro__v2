@@ -1,6 +1,5 @@
 // ==========================================
-// Auditly Pro v2
-// AI-Powered Shopify Compliance & Optimization Platform
+// Auditly Pro v2 - Main Server
 // ==========================================
 
 require("dotenv").config();
@@ -9,38 +8,25 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 
+const authRoutes = require("./routes/auth");
+const dashboardRoutes = require("./routes/dashboard");
+const apiRoutes = require("./routes/api");
+const billingRoutes = require("./routes/billing");
+
 const app = express();
 
-
-// ==========================================
-// Middleware
-// ==========================================
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
 app.use(express.json());
-
-app.use(express.urlencoded({ 
-    extended: true 
-}));
-
-
-// ==========================================
-// Static Files
-// ==========================================
+app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "public")));
 
 
-// ==========================================
 // Routes
-// ==========================================
 
-const billingRoutes = require("./routes/billing");
-const apiRoutes = require("./routes/api");
-const authRoutes = require("./routes/auth");
-const dashboardRoutes = require("./routes/dashboard");
-app.use("/auth", authRoutes);
 app.use("/auth", authRoutes);
 
 app.use("/dashboard", dashboardRoutes);
@@ -50,55 +36,26 @@ app.use("/api", apiRoutes);
 app.use("/billing", billingRoutes);
 
 
-// ==========================================
-// Main Health Check
-// ==========================================
+// Health check
 
 app.get("/", (req, res) => {
 
     res.send(`
-
-        <h1>🚀 Auditly Pro v2</h1>
-
-        <p>
-        AI-Powered Shopify Compliance & Optimization Platform
-        </p>
-
-        <p>
-        Server Status: Online
-        </p>
-
+        <h1>🚀 Auditly Pro v2 Running</h1>
+        <p>AI-Powered Shopify Compliance & Optimization Platform</p>
+        <p>Status: Online</p>
     `);
 
 });
 
 
-// ==========================================
-// 404 Handler
-// ==========================================
-
-app.use((req, res) => {
-
-    res.status(404).json({
-
-        success: false,
-
-        message: "Route not found."
-
-    });
-
-});
-
-
-// ==========================================
-// Render Port Configuration
-// ==========================================
-
-const PORT = process.env.PORT || 10000;
-
+// Start server
 
 app.listen(PORT, () => {
 
-    console.log(`🚀 Auditly Pro v2 running on port ${PORT}`);
+    console.log("--------------------------------");
+    console.log("🚀 Auditly Pro v2 Server Started");
+    console.log("Port:", PORT);
+    console.log("--------------------------------");
 
 });
