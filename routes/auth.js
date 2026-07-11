@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const crypto = require("crypto");
-
+const fs = require("fs");
+const path = require("path");
 const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
 const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
 const HOST = process.env.HOST;
@@ -60,12 +61,44 @@ router.get("/callback", async (req,res)=>{
             }
         );
 
+const data = await response.json();
 
-        const data = await response.json();
+const shopData = {
+    shop: shop,
+    accessToken: data.access_token,
+    installed: new Date().toISOString()
+};
 
 
-        console.log("SHOPIFY TOKEN RECEIVED");
-        console.log(data);
+const filePath = path.join(__dirname, "../data/shops.json");
+
+
+let shops = [];
+
+if (fs.existsSync(filePath)) {
+    shops = JSON.parse(fs.readFileSync(filePath));
+}
+
+
+const existingShop = shops.find(
+    item => item.shop === shop
+);
+
+
+if (!existingShop) {
+    shops.push(shopData);
+}
+
+
+fs.writeFileSync(
+    filePath,
+    JSON.stringify(shops, null, 2)
+);
+
+
+console.log("SHOP SAVED:");
+console.log(shopData);
+        
 
 
         res.send(`
