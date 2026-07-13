@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+console.log("🔥 AUTH.JS LOADED FROM:", __filename);
 
 // ==========================================
 // Auditly Pro v2
@@ -56,4 +57,5 @@ router.get("/logout", (req, res) => {
 
 });
 
+console.log("🔥 AUTH ROUTES REGISTERED");
 module.exports = router;
