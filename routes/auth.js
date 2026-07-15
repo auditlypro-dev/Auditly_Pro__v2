@@ -1,5 +1,9 @@
 const express = require("express");
 const router = express.Router();
+
+router.get("/hello", (req, res) => {
+    res.send("AUTH ROUTE IS DEFINITELY WORKING");
+});
 console.log("🔥 AUTH ROUTER LOADED");
 const crypto = require("crypto");
 const fs = require("fs");
