@@ -7,8 +7,7 @@ router.get("/hello", (req, res) => {
     res.send("HELLO FROM THE NEW AUTH FILE");
 });
 
-router.get("/hello", (req, res) => {
-    res.send("AUDITLY PRO AUTH ROUTE IS WORKING!!!");
+
 });
 console.log("🔥 AUTH ROUTER LOADED");
 const crypto = require("crypto");
