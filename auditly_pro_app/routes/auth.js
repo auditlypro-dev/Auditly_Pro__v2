@@ -1,61 +1,136 @@
 const express = require("express");
 const router = express.Router();
-console.log("🔥 AUTH.JS LOADED FROM:", __filename);
 
-// ==========================================
-// Auditly Pro v2
-// Shopify Authentication Routes
-// ==========================================
+console.log("🔥 USING NEW AUTH FILE");
 
-// Landing page for authentication
-router.get("/", (req, res) => {
-    res.json({
-        success: true,
-        message: "Auditly Pro Authentication API"
-    });
+router.get("/hello", (req, res) => {
+    res.send("HELLO FROM THE NEW AUTH FILE");
 });
 
-// Begin Shopify OAuth
-router.get("/login", (req, res) => {
+router.get("/hello", (req, res) => {
+    res.send("AUDITLY PRO AUTH ROUTE IS WORKING!!!");
+});
+console.log("🔥 AUTH ROUTER LOADED");
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
+const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
+const HOST = process.env.HOST;
+
+const SCOPES = process.env.SCOPES;
+
+router.get("/install", (req, res) => {
 
     const shop = req.query.shop;
 
     if (!shop) {
-        return res.status(400).json({
-            success: false,
-            message: "Missing shop parameter."
-        });
+        return res.status(400).send("Missing Shopify shop name");
     }
 
-    // OAuth logic will be added later
-    res.json({
-        success: true,
-        message: `Authentication requested for ${shop}`,
-        nextStep: "OAuth implementation coming soon."
-    });
+    const state = crypto.randomBytes(16).toString("hex");
+
+    const redirectUri = `${HOST}/auth/callback`;
+
+    const installUrl =
+        `https://${shop}/admin/oauth/authorize` +
+        `?client_id=${SHOPIFY_API_KEY}` +
+        `&scope=${SCOPES}` +
+        `&redirect_uri=${redirectUri}` +
+        `&state=${state}`;
+
+    res.redirect(installUrl);
 
 });
 
-// OAuth callback
-router.get("/callback", (req, res) => {
 
-    res.json({
-        success: true,
-        message: "OAuth callback received.",
-        status: "Placeholder route"
-    });
+router.get("/callback", async (req,res)=>{
+
+    const shop = req.query.shop;
+    const code = req.query.code;
+
+
+    if(!shop || !code){
+        return res.status(400).send("Missing Shopify OAuth information");
+    }
+
+
+    try {
+
+        const response = await fetch(
+            `https://${shop}/admin/oauth/access_token`,
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json"
+                },
+                body:JSON.stringify({
+                    client_id:SHOPIFY_API_KEY,
+                    client_secret:SHOPIFY_API_SECRET,
+                    code:code
+                })
+            }
+        );
+
+const data = await response.json();
+
+const shopData = {
+    shop: shop,
+    accessToken: data.access_token,
+    installed: new Date().toISOString()
+};
+
+
+const filePath = path.join(__dirname, "../data/shops.json");
+
+
+let shops = [];
+
+if (fs.existsSync(filePath)) {
+    shops = JSON.parse(fs.readFileSync(filePath));
+}
+
+
+const existingShop = shops.find(
+    item => item.shop === shop
+);
+
+
+if (!existingShop) {
+    shops.push(shopData);
+}
+
+
+fs.writeFileSync(
+    filePath,
+    JSON.stringify(shops, null, 2)
+);
+
+
+console.log("SHOP SAVED:");
+console.log(shopData);
+        
+
+
+        res.send(`
+            <h1>🎉 Shopify Connected!</h1>
+            <p>Store:</p>
+            <strong>${shop}</strong>
+            <br><br>
+            You can now return to Auditly Pro.
+        `);
+
+
+    } catch(error){
+
+        console.error(error);
+        res.status(500).send("OAuth failed");
+
+    }
 
 });
 
-// Logout
-router.get("/logout", (req, res) => {
-
-    res.json({
-        success: true,
-        message: "Successfully logged out."
-    });
-
+router.get("/test", (req, res) => {
+    res.send("AUTH ROUTER IS WORKING");
 });
-
-console.log("🔥 AUTH ROUTES REGISTERED");
 module.exports = router;
