@@ -7,8 +7,6 @@ router.get("/hello", (req, res) => {
     res.send("HELLO FROM THE NEW AUTH FILE");
 });
 
-
-});
 console.log("🔥 AUTH ROUTER LOADED");
 const crypto = require("crypto");
 const fs = require("fs");
