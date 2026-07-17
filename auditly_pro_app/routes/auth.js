@@ -106,7 +106,7 @@ fs.writeFileSync(
 
 console.log("SHOP SAVED:");
 console.log(shopData);
-        
+  console.log("STORE TEST TOKEN EXISTS:", !!shopData.accessToken);      
 
 
         res.send(`
