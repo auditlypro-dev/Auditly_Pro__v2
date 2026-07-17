@@ -1,12 +1,17 @@
 const express = require("express");
 const router = express.Router();
 
+const shopifyService = require("../services/shopify");
+
+
 // ==========================================
 // Auditly Pro v2
 // API Routes
 // ==========================================
 
-// API Home
+
+// Test API
+
 router.get("/", (req, res) => {
 
     res.json({
@@ -16,36 +21,75 @@ router.get("/", (req, res) => {
 
 });
 
-// Run Store Audit
+
+// ==========================================
+// Shopify Store Information
+// ==========================================
+
+router.get("/store", async (req, res) => {
+
+    const shop = req.query.shop;
+    const accessToken = req.query.token;
+
+
+    if (!shop || !accessToken) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            message: "Missing shop or token"
+
+        });
+
+    }
+
+
+    const storeInfo = await shopifyService.getStoreInfo(
+        shop,
+        accessToken
+    );
+
+
+    res.json(storeInfo);
+
+});
+
+
+// ==========================================
+// Audit Starter
+// ==========================================
+
 router.post("/audit", (req, res) => {
 
     res.json({
+
         success: true,
+
         auditStatus: "Started",
-        message: "Store audit has been initiated."
+
+        message: "Store audit initiated."
+
     });
 
 });
 
+
+// ==========================================
 // Audit Results
+// ==========================================
+
 router.get("/results", (req, res) => {
 
     res.json({
+
         success: true,
-        completed: false,
+
         results: []
+
     });
 
 });
 
-// AI Recommendations
-router.get("/recommendations", (req, res) => {
-
-    res.json({
-        success: true,
-        recommendations: []
-    });
-
-});
 
 module.exports = router;
