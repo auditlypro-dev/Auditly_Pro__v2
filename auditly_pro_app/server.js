@@ -49,7 +49,27 @@ app.get("/", (req, res) => {
 
 
 // Start server
+console.log("===== REGISTERED ROUTES =====");
 
+app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+        console.log(
+            Object.keys(middleware.route.methods).join(",").toUpperCase(),
+            middleware.route.path
+        );
+    } else if (middleware.name === "router") {
+        middleware.handle.stack.forEach((handler) => {
+            if (handler.route) {
+                console.log(
+                    Object.keys(handler.route.methods).join(",").toUpperCase(),
+                    handler.route.path
+                );
+            }
+        });
+    }
+});
+
+console.log("=============================");
 app.listen(PORT, () => {
 
     console.log("--------------------------------");
