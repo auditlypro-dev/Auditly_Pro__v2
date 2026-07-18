@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-
+console.log("🔥 API ROUTES FILE LOADED");
 
 // ==========================================
 // Auditly Pro v2
