@@ -3,6 +3,9 @@ const router = express.Router();
 
 console.log("🔥 API ROUTES FILE LOADED");
 
+const fs = require("fs");
+const path = require("path");
+
 const shopifyService = require("../services/shopify");
 
 
@@ -25,6 +28,52 @@ router.get("/", (req, res) => {
 
 
 // ==========================================
+// Shopify Connection Status
+// ==========================================
+
+router.get("/shop/status", (req, res) => {
+
+    const filePath = path.join(
+        __dirname,
+        "../data/shops.json"
+    );
+
+
+    if (!fs.existsSync(filePath)) {
+
+        return res.json({
+            connected: false
+        });
+
+    }
+
+
+    const shops = JSON.parse(
+        fs.readFileSync(filePath, "utf8")
+    );
+
+
+    if (!shops.length) {
+
+        return res.json({
+            connected: false
+        });
+
+    }
+
+
+    res.json({
+
+        connected: true,
+
+        shop: shops[0].shop
+
+    });
+
+});
+
+
+// ==========================================
 // Shopify Store Information
 // ==========================================
 
@@ -38,9 +87,9 @@ router.get("/store", async (req, res) => {
 
         return res.status(400).json({
 
-            success: false,
+            success:false,
 
-            message: "Missing shop or token"
+            message:"Missing shop or token"
 
         });
 
@@ -62,15 +111,15 @@ router.get("/store", async (req, res) => {
 // Audit Starter
 // ==========================================
 
-router.post("/audit", (req, res) => {
+router.post("/audit", (req,res)=>{
 
     res.json({
 
-        success: true,
+        success:true,
 
-        auditStatus: "Started",
+        auditStatus:"Started",
 
-        message: "Store audit initiated."
+        message:"Store audit initiated."
 
     });
 
@@ -81,13 +130,13 @@ router.post("/audit", (req, res) => {
 // Audit Results
 // ==========================================
 
-router.get("/results", (req, res) => {
+router.get("/results",(req,res)=>{
 
     res.json({
 
-        success: true,
+        success:true,
 
-        results: []
+        results:[]
 
     });
 
