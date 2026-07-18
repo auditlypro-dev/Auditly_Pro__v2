@@ -71,6 +71,9 @@ router.get("/callback", async (req,res)=>{
 
 const data = await response.json();
 
+console.log("SHOPIFY TOKEN RESPONSE:");
+console.log(data);
+        
 const shopData = {
     shop: shop,
     accessToken: data.access_token,
