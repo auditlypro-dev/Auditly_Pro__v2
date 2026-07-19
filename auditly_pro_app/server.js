@@ -1,3 +1,12 @@
+process.on("uncaughtException", (error) => {
+    console.error("🔥 UNCAUGHT EXCEPTION:");
+    console.error(error);
+});
+
+process.on("unhandledRejection", (error) => {
+    console.error("🔥 UNHANDLED REJECTION:");
+    console.error(error);
+});
 // ==========================================
 // Auditly Pro v2
 // Shopify Service
