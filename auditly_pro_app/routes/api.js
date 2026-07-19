@@ -191,3 +191,30 @@ router.get("/store/status", (req, res) => {
 });
 
 module.exports = router;
+router.get("/debug/shops", (req,res)=>{
+
+    const fs = require("fs");
+    const path = require("path");
+
+    const filePath = path.join(
+        __dirname,
+        "../data/shops.json"
+    );
+
+
+    if(!fs.existsSync(filePath)){
+        return res.json({
+            exists:false
+        });
+    }
+
+
+    const data = fs.readFileSync(filePath, "utf8");
+
+
+    res.json({
+        exists:true,
+        contents:data
+    });
+
+});
