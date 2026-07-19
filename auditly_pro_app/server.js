@@ -1,59 +1,144 @@
 // ==========================================
-// Auditly Pro v2 - Main Server
+// Auditly Pro v2
+// Shopify Service
 // ==========================================
 
-require("dotenv").config();
+async function shopifyRequest(shop, accessToken, endpoint) {
 
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
+    try {
 
-const authRoutes = require("./routes/auth");
-const dashboardRoutes = require("./routes/dashboard");
-const apiRoutes = require("./routes/api");
-const billingRoutes = require("./routes/billing");
+        const response = await fetch(
+            `https://${shop}/admin/api/2025-10/${endpoint}`,
+            {
+                method: "GET",
+                headers: {
+                    "X-Shopify-Access-Token": accessToken,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
 
-const app = express();
+        if (!response.ok) {
 
-const PORT = process.env.PORT || 10000;
+            return {
+                success: false,
+                status: response.status,
+                message: `Shopify API returned ${response.status}`
+            };
 
-// ==========================================
-// Middleware
-// ==========================================
+        }
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+        return await response.json();
 
-// ==========================================
-// Routes
-// ==========================================
+    } catch (error) {
 
-app.use("/auth", authRoutes);
-app.use("/dashboard", dashboardRoutes);
-app.use("/api", apiRoutes);
-app.use("/billing", billingRoutes);
+        return {
+            success: false,
+            message: error.message
+        };
 
-// ==========================================
-// Health Check
-// ==========================================
+    }
 
-app.get("/", (req, res) => {
-    res.send(`
-        <h1>🚀 Auditly Pro v2 Running</h1>
-        <p>AI-Powered Shopify Compliance & Optimization Platform</p>
-        <p>Status: Online</p>
-    `);
-});
+}
+
 
 // ==========================================
-// Start Server
+// Store Information
 // ==========================================
 
-app.listen(PORT, () => {
-    console.log("--------------------------------");
-    console.log("🚀 Auditly Pro v2 Server Started");
-    console.log("Port:", PORT);
-    console.log("--------------------------------");
-});
+async function getStoreInfo(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "shop.json"
+    );
+
+}
+
+
+// ==========================================
+// Products
+// ==========================================
+
+async function getProducts(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "products.json?limit=250"
+    );
+
+}
+
+
+// ==========================================
+// Collections
+// ==========================================
+
+async function getCollections(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "custom_collections.json"
+    );
+
+}
+
+
+// ==========================================
+// Pages
+// ==========================================
+
+async function getPages(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "pages.json"
+    );
+
+}
+
+
+// ==========================================
+// Themes
+// ==========================================
+
+async function getThemes(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "themes.json"
+    );
+
+}
+
+
+// ==========================================
+// Policies
+// ==========================================
+
+async function getPolicies(shop, accessToken) {
+
+    return await shopifyRequest(
+        shop,
+        accessToken,
+        "policies.json"
+    );
+
+}
+
+
+module.exports = {
+
+    getStoreInfo,
+    getProducts,
+    getCollections,
+    getPages,
+    getThemes,
+    getPolicies
+
+};
