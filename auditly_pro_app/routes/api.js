@@ -142,5 +142,52 @@ router.get("/results",(req,res)=>{
 
 });
 
+// ==========================================
+// Shopify Connection Status
+// ==========================================
+
+router.get("/store/status", (req, res) => {
+
+    const fs = require("fs");
+    const path = require("path");
+
+    const filePath = path.join(
+        __dirname,
+        "../data/shops.json"
+    );
+
+
+    if (!fs.existsSync(filePath)) {
+
+        return res.json({
+            connected: false
+        });
+
+    }
+
+
+    const shops = JSON.parse(
+        fs.readFileSync(filePath)
+    );
+
+
+    if (!shops || shops.length === 0) {
+
+        return res.json({
+            connected: false
+        });
+
+    }
+
+
+    res.json({
+
+        connected: true,
+        shop: shops[0].shop
+
+    });
+
+
+});
 
 module.exports = router;
