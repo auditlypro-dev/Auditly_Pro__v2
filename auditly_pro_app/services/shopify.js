@@ -1,11 +1,15 @@
 const fetch = global.fetch;
 
+// ==========================================
+// Shopify Service
+// ==========================================
+
 async function getStoreInfo(shop, accessToken) {
 
     try {
 
         const response = await fetch(
-            `https://${shop}/admin/api/2025-07/shop.json`,
+            `https://${shop}/admin/api/2025-01/shop.json`,
             {
                 method: "GET",
                 headers: {
@@ -19,6 +23,7 @@ async function getStoreInfo(shop, accessToken) {
 
             return {
                 success: false,
+                status: response.status,
                 message: "Unable to connect to Shopify."
             };
 
@@ -28,12 +33,12 @@ async function getStoreInfo(shop, accessToken) {
 
         return {
             success: true,
-            shop: data.shop
+            store: data.shop
         };
 
     } catch (error) {
 
-        console.error(error);
+        console.error("SHOPIFY SERVICE ERROR:", error);
 
         return {
             success: false,
