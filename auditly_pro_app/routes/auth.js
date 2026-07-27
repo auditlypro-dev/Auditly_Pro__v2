@@ -86,8 +86,31 @@ console.log("AUTH shops.json path:", filePath);
 let shops = [];
 
 if (fs.existsSync(filePath)) {
-    shops = JSON.parse(fs.readFileSync(filePath));
+    shops = JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
+
+console.log("Shops BEFORE save:", shops);
+
+const existingIndex = shops.findIndex(
+    item => item.shop === shop
+);
+
+if (existingIndex >= 0) {
+    shops[existingIndex] = shopData;
+} else {
+    shops.push(shopData);
+}
+
+console.log("Shops AFTER save:", shops);
+
+fs.writeFileSync(
+    filePath,
+    JSON.stringify(shops, null, 2),
+    "utf8"
+);
+
+console.log("Saved file contents:");
+console.log(fs.readFileSync(filePath, "utf8"));
 
 
 const existingShop = shops.find(
