@@ -1,21 +1,29 @@
 const express = require("express");
 const router = express.Router();
 
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+
 console.log("🔥 USING NEW AUTH FILE");
+console.log("🔥 AUTH ROUTER LOADED");
+
+const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
+const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
+const HOST = process.env.HOST;
+const SCOPES = process.env.SCOPES;
+
+// --------------------------------------------------
+// Test Route
+// --------------------------------------------------
 
 router.get("/hello", (req, res) => {
     res.send("HELLO FROM THE NEW AUTH FILE");
 });
 
-console.log("🔥 AUTH ROUTER LOADED");
-const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
-const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY;
-const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
-const HOST = process.env.HOST;
-
-const SCOPES = process.env.SCOPES;
+// --------------------------------------------------
+// Install Route
+// --------------------------------------------------
 
 router.get("/install", (req, res) => {
 
@@ -37,102 +45,96 @@ router.get("/install", (req, res) => {
         `&state=${state}`;
 
     res.redirect(installUrl);
-
 });
 
+// --------------------------------------------------
+// OAuth Callback
+// --------------------------------------------------
 
-router.get("/callback", async (req,res)=>{
+router.get("/callback", async (req, res) => {
 
     const shop = req.query.shop;
     const code = req.query.code;
 
-
-    if(!shop || !code){
+    if (!shop || !code) {
         return res.status(400).send("Missing Shopify OAuth information");
     }
-
 
     try {
 
         const response = await fetch(
             `https://${shop}/admin/oauth/access_token`,
             {
-                method:"POST",
-                headers:{
-                    "Content-Type":"application/json"
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
                 },
-                body:JSON.stringify({
-                    client_id:SHOPIFY_API_KEY,
-                    client_secret:SHOPIFY_API_SECRET,
-                    code:code
+                body: JSON.stringify({
+                    client_id: SHOPIFY_API_KEY,
+                    client_secret: SHOPIFY_API_SECRET,
+                    code: code
                 })
             }
         );
 
-const data = await response.json();
+        const data = await response.json();
 
-console.log("SHOPIFY TOKEN RESPONSE:");
-        
-const shopData = {
-    shop: shop,
-    accessToken: data.access_token,
-    installed: new Date().toISOString()
-};
+        console.log("SHOPIFY TOKEN RESPONSE");
+        console.log(data);
 
+        if (!data.access_token) {
+            return res.status(500).json({
+                error: "No access token returned from Shopify",
+                details: data
+            });
+        }
 
-const filePath = path.join(__dirname, "../data/shops.json");
-console.log("AUTH shops.json path:", filePath);
+        const shopData = {
+            shop: shop,
+            accessToken: data.access_token,
+            installed: new Date().toISOString()
+        };
 
-let shops = [];
+        const filePath = path.join(__dirname, "../data/shops.json");
 
-if (fs.existsSync(filePath)) {
-    shops = JSON.parse(fs.readFileSync(filePath, "utf8"));
-}
+        console.log("AUTH shops.json path:", filePath);
 
-console.log("Shops BEFORE save:", shops);
+        let shops = [];
 
-const existingIndex = shops.findIndex(
-    item => item.shop === shop
-);
+        if (fs.existsSync(filePath)) {
+            const fileContents = fs.readFileSync(filePath, "utf8").trim();
 
-if (existingIndex >= 0) {
-    shops[existingIndex] = shopData;
-} else {
-    shops.push(shopData);
-}
+            if (fileContents.length > 0) {
+                shops = JSON.parse(fileContents);
+            }
+        }
 
-console.log("Shops AFTER save:", shops);
+        console.log("Shops BEFORE save:", shops);
 
-fs.writeFileSync(
-    filePath,
-    JSON.stringify(shops, null, 2),
-    "utf8"
-);
+        const existingIndex = shops.findIndex(
+            item => item.shop === shop
+        );
 
-console.log("Saved file contents:");
-console.log(fs.readFileSync(filePath, "utf8"));
+        if (existingIndex >= 0) {
+            shops[existingIndex] = shopData;
+        } else {
+            shops.push(shopData);
+        }
 
+        console.log("Shops AFTER save:", shops);
 
-const existingShop = shops.find(
-    item => item.shop === shop
-);
+        fs.writeFileSync(
+            filePath,
+            JSON.stringify(shops, null, 2),
+            "utf8"
+        );
 
+        console.log("Saved file contents:");
+        console.log(fs.readFileSync(filePath, "utf8"));
 
-if (!existingShop) {
-    shops.push(shopData);
-}
-
-
-fs.writeFileSync(
-    filePath,
-    JSON.stringify(shops, null, 2)
-);
-
-
-console.log("SHOP SAVED:");
-console.log(shopData);
-  console.log("STORE TEST TOKEN EXISTS:", !!shopData.accessToken);      
-
+        console.log("SHOP SAVED:");
+        console.log(shopData);
+        console.log("STORE TEST TOKEN EXISTS:", !!shopData.accessToken);
 
         res.send(`
             <h1>🎉 Shopify Connected!</h1>
@@ -142,17 +144,21 @@ console.log(shopData);
             You can now return to Auditly Pro.
         `);
 
+    } catch (error) {
 
-    } catch(error){
+        console.error("OAuth Error:", error);
 
-        console.error(error);
         res.status(500).send("OAuth failed");
-
     }
 
 });
 
+// --------------------------------------------------
+// Test Route
+// --------------------------------------------------
+
 router.get("/test", (req, res) => {
     res.send("AUTH ROUTER IS WORKING");
 });
+
 module.exports = router;
