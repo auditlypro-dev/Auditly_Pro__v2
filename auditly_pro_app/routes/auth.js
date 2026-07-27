@@ -13,6 +13,7 @@ const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET;
 const HOST = process.env.HOST;
 const SCOPES = process.env.SCOPES;
 
+
 // --------------------------------------------------
 // Test Route
 // --------------------------------------------------
@@ -20,6 +21,7 @@ const SCOPES = process.env.SCOPES;
 router.get("/hello", (req, res) => {
     res.send("HELLO FROM THE NEW AUTH FILE");
 });
+
 
 // --------------------------------------------------
 // Install Route
@@ -45,7 +47,9 @@ router.get("/install", (req, res) => {
         `&state=${state}`;
 
     res.redirect(installUrl);
+
 });
+
 
 // --------------------------------------------------
 // OAuth Callback
@@ -56,9 +60,11 @@ router.get("/callback", async (req, res) => {
     const shop = req.query.shop;
     const code = req.query.code;
 
+
     if (!shop || !code) {
         return res.status(400).send("Missing Shopify OAuth information");
     }
+
 
     try {
 
@@ -77,51 +83,75 @@ router.get("/callback", async (req, res) => {
             }
         );
 
+
         const data = await response.json();
 
-        console.log("SHOPIFY TOKEN RESPONSE");
-        console.log(data);
+
+        console.log("SHOPIFY TOKEN RESPONSE RECEIVED");
+
 
         if (!data.access_token) {
+
             return res.status(500).json({
                 error: "No access token returned from Shopify",
                 details: data
             });
+
         }
 
+
         const shopData = {
+
             shop: shop,
             accessToken: data.access_token,
             installed: new Date().toISOString()
+
         };
 
-        const filePath = path.join(__dirname, "../data/shops.json");
 
-        console.log("AUTH shops.json path:", filePath);
+        const filePath = path.join(
+            __dirname,
+            "../data/shops.json"
+        );
+
+
+        console.log(
+            "AUTH shops.json path:",
+            filePath
+        );
+
 
         let shops = [];
 
+
         if (fs.existsSync(filePath)) {
-            const fileContents = fs.readFileSync(filePath, "utf8").trim();
+
+            const fileContents =
+                fs.readFileSync(filePath, "utf8").trim();
+
 
             if (fileContents.length > 0) {
                 shops = JSON.parse(fileContents);
             }
+
         }
 
-        console.log("Shops BEFORE save:", shops);
 
         const existingIndex = shops.findIndex(
             item => item.shop === shop
         );
 
+
         if (existingIndex >= 0) {
+
             shops[existingIndex] = shopData;
+
         } else {
+
             shops.push(shopData);
+
         }
 
-        console.log("Shops AFTER save:", shops);
 
         fs.writeFileSync(
             filePath,
@@ -129,12 +159,14 @@ router.get("/callback", async (req, res) => {
             "utf8"
         );
 
-        console.log("Saved file contents:");
-        console.log(fs.readFileSync(filePath, "utf8"));
 
         console.log("SHOP SAVED:");
-        console.log(shopData);
-        console.log("STORE TEST TOKEN EXISTS:", !!shopData.accessToken);
+        console.log({
+            shop: shopData.shop,
+            tokenSaved: !!shopData.accessToken,
+            installed: shopData.installed
+        });
+
 
         res.send(`
             <h1>🎉 Shopify Connected!</h1>
@@ -144,21 +176,30 @@ router.get("/callback", async (req, res) => {
             You can now return to Auditly Pro.
         `);
 
+
     } catch (error) {
 
-        console.error("OAuth Error:", error);
+        console.error(
+            "OAuth Error:",
+            error
+        );
 
         res.status(500).send("OAuth failed");
+
     }
 
 });
+
 
 // --------------------------------------------------
 // Test Route
 // --------------------------------------------------
 
 router.get("/test", (req, res) => {
+
     res.send("AUTH ROUTER IS WORKING");
+
 });
+
 
 module.exports = router;
