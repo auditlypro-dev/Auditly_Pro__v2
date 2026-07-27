@@ -10,7 +10,7 @@ const SHOPIFY_API_VERSION = "2025-01";
 
 // Location of saved Shopify stores/tokens
 const shopsFile = path.join(__dirname, "../data/shops.json");
-
+console.log("API shops.json path:", shopsFile);
 
 // GET /api/store?shop=store-name.myshopify.com
 router.get("/store", async (req, res) => {
