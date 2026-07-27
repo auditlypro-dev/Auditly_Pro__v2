@@ -81,7 +81,7 @@ const shopData = {
 
 
 const filePath = path.join(__dirname, "../data/shops.json");
-
+console.log("AUTH shops.json path:", filePath);
 
 let shops = [];
 
