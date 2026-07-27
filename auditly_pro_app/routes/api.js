@@ -103,5 +103,26 @@ router.get("/store", async (req, res) => {
     }
 });
 
+router.get("/debug", (req, res) => {
+    if (!fs.existsSync(shopsFile)) {
+        return res.json({ exists: false });
+    }
 
+    const shops = JSON.parse(fs.readFileSync(shopsFile, "utf8"));
+
+    res.json({
+        exists: true,
+        shops: shops.map(shop => ({
+            shop: shop.shop,
+            installed: shop.installed,
+            hasToken: !!shop.accessToken,
+            tokenPrefix: shop.accessToken
+                ? shop.accessToken.substring(0, 10)
+                : null,
+            tokenLength: shop.accessToken
+                ? shop.accessToken.length
+                : 0
+        }))
+    });
+});
 module.exports = router;
