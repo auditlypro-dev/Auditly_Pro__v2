@@ -1,6 +1,6 @@
 {
   "name": "auditly-pro-v2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Auditly Pro - AI-powered Shopify Compliance & Optimization Platform",
   "main": "server.js",
   "scripts": {
@@ -17,6 +17,7 @@
   "author": "Vanessa Crites",
   "license": "MIT",
   "dependencies": {
+    "@shopify/shopify-app-express": "^7.0.1",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
