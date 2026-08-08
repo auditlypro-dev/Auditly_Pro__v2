@@ -2,10 +2,12 @@ const express = require("express");
 const router = express.Router();
 
 const crypto = require("crypto");
-const fs = require("fs");
-const path = require("path");
 
-console.log("🔥 USING UPDATED AUTH FILE");
+const {
+    saveShop
+} = require("../services/supabase");
+
+console.log("🔥 USING SUPABASE AUTH FILE");
 console.log("🔥 AUTH ROUTER LOADED");
 
 
@@ -15,22 +17,24 @@ const HOST = process.env.HOST;
 const SCOPES = process.env.SCOPES;
 
 
-// Temporary storage for OAuth states
+// Temporary OAuth state storage
 const oauthStates = {};
 
 
-// --------------------------------------------
+// ==========================================
 // Test Route
-// --------------------------------------------
+// ==========================================
 
 router.get("/hello", (req, res) => {
-    res.send("HELLO FROM UPDATED AUTH FILE");
+
+    res.send("HELLO FROM SUPABASE AUTH FILE");
+
 });
 
 
-// --------------------------------------------
+// ==========================================
 // Install Route
-// --------------------------------------------
+// ==========================================
 
 router.get("/install", (req, res) => {
 
@@ -38,7 +42,11 @@ router.get("/install", (req, res) => {
 
 
     if (!shop) {
-        return res.status(400).send("Missing Shopify shop name");
+
+        return res
+            .status(400)
+            .send("Missing Shopify shop name");
+
     }
 
 
@@ -48,12 +56,16 @@ router.get("/install", (req, res) => {
 
 
     oauthStates[state] = {
-        shop,
+
+        shop: shop,
+
         created: Date.now()
+
     };
 
 
-    const redirectUri = `${HOST}/auth/callback`;
+    const redirectUri =
+        `${HOST}/auth/callback`;
 
 
     const installUrl =
@@ -64,7 +76,10 @@ router.get("/install", (req, res) => {
         `&state=${state}`;
 
 
-    console.log("SHOPIFY INSTALL URL CREATED");
+    console.log(
+        "SHOPIFY INSTALL URL CREATED FOR:",
+        shop
+    );
 
 
     res.redirect(installUrl);
@@ -72,12 +87,11 @@ router.get("/install", (req, res) => {
 });
 
 
-// --------------------------------------------
+// ==========================================
 // OAuth Callback
-// --------------------------------------------
+// ==========================================
 
 router.get("/callback", async (req, res) => {
-
 
     const {
         shop,
@@ -86,167 +100,129 @@ router.get("/callback", async (req, res) => {
     } = req.query;
 
 
-
     if (!shop || !code || !state) {
 
-        return res.status(400)
+        return res
+            .status(400)
             .send("Missing Shopify OAuth information");
 
     }
 
 
+    // --------------------------------------
+    // Verify OAuth State
+    // --------------------------------------
 
     if (!oauthStates[state]) {
 
-        return res.status(403)
+        return res
+            .status(403)
             .send("Invalid OAuth state");
 
     }
 
 
-
     delete oauthStates[state];
-
 
 
     try {
 
+        // ----------------------------------
+        // Exchange OAuth code for token
+        // ----------------------------------
 
         const response = await fetch(
+
             `https://${shop}/admin/oauth/access_token`,
+
             {
 
                 method: "POST",
 
                 headers: {
-                    "Content-Type": "application/json"
+
+                    "Content-Type":
+                        "application/json"
+
                 },
 
                 body: JSON.stringify({
 
-                    client_id: SHOPIFY_API_KEY,
+                    client_id:
+                        SHOPIFY_API_KEY,
 
-                    client_secret: SHOPIFY_API_SECRET,
+                    client_secret:
+                        SHOPIFY_API_SECRET,
 
                     code: code
 
                 })
 
             }
+
         );
 
 
-
-        const data = await response.json();
-
-
-
-        console.log("SHOPIFY TOKEN RESPONSE RECEIVED");
+        const data =
+            await response.json();
 
 
-
-        if (!data.access_token) {
-
-
-            return res.status(500).json({
-
-                error: "No Shopify access token received",
-
-                details: data
-
-            });
-
-        }
-
-
-
-        const shopData = {
-
-            shop,
-
-            accessToken: data.access_token,
-
-            installed: new Date().toISOString()
-
-        };
-
-
-
-        const filePath = path.join(
-            __dirname,
-            "../data/shops.json"
+        console.log(
+            "SHOPIFY TOKEN RESPONSE RECEIVED"
         );
 
 
+        if (!response.ok || !data.access_token) {
 
-        let shops = [];
-
-
-
-        if (fs.existsSync(filePath)) {
-
-
-            const contents =
-                fs.readFileSync(filePath, "utf8").trim();
-
-
-            if (contents) {
-
-                shops = JSON.parse(contents);
-
-            }
-
-        }
-
-
-
-        const existingIndex =
-            shops.findIndex(
-                item => item.shop === shop
+            console.error(
+                "SHOPIFY TOKEN ERROR:",
+                data
             );
 
+            return res
+                .status(500)
+                .json({
 
+                    error:
+                        "No Shopify access token received",
 
-        if (existingIndex >= 0) {
+                    details:
+                        data
 
-            shops[existingIndex] = shopData;
-
-        } else {
-
-            shops.push(shopData);
+                });
 
         }
 
 
+        const accessToken =
+            data.access_token;
 
-        fs.writeFileSync(
 
-            filePath,
+        // ----------------------------------
+        // Save Shopify store to Supabase
+        // ----------------------------------
 
-            JSON.stringify(
-                shops,
-                null,
-                2
-            ),
-
-            "utf8"
-
+        console.log(
+            "SAVING SHOP TO SUPABASE:",
+            shop
         );
 
 
-
-        console.log("SHOP SAVED");
-
-        console.log({
-
+        await saveShop(
             shop,
-
-            tokenSaved:
-                !!shopData.accessToken
-
-        });
+            accessToken
+        );
 
 
+        console.log(
+            "✅ SHOP SAVED TO SUPABASE:",
+            shop
+        );
+
+
+        // ----------------------------------
+        // Success response
+        // ----------------------------------
 
         res.send(`
 
@@ -258,37 +234,38 @@ router.get("/callback", async (req, res) => {
 
             <br><br>
 
-            Your Shopify store is connected.
+            <p>
+                Your Shopify store is connected
+                and securely saved.
+            </p>
 
         `);
 
 
-
-    } catch(error) {
-
+    } catch (error) {
 
         console.error(
-            "OAuth ERROR:",
+            "❌ OAuth / Supabase ERROR:",
             error
         );
 
 
-        res.status(500)
-            .send("OAuth failed");
-
+        res
+            .status(500)
+            .send(
+                "OAuth connection failed. Please try again."
+            );
 
     }
-
 
 });
 
 
-
-// --------------------------------------------
+// ==========================================
 // Test Route
-// --------------------------------------------
+// ==========================================
 
-router.get("/test", (req,res)=>{
+router.get("/test", (req, res) => {
 
     res.send(
         "AUTH ROUTER IS WORKING"
