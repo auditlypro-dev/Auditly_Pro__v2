@@ -1,128 +1,423 @@
 const express = require("express");
+
 const router = express.Router();
 
-const fs = require("fs");
-const path = require("path");
-const axios = require("axios");
 
-// Shopify API configuration
-const SHOPIFY_API_VERSION = "2025-01";
+// ==========================================
+// Auditly Pro v2
+// Supabase + Shopify API Routes
+// ==========================================
 
-// Location of saved Shopify stores/tokens
-const shopsFile = path.join(__dirname, "../data/shops.json");
-console.log("API shops.json path:", shopsFile);
+const {
+    getShop
+} = require("../services/supabase");
 
-// GET /api/store?shop=store-name.myshopify.com
+
+const {
+    getStoreInfo,
+    getProducts,
+    getThemes
+} = require("../services/shopify");
+
+
+// ==========================================
+// GET /api/store
+//
+// Example:
+// /api/store?shop=auditly-pro-app.myshopify.com
+// ==========================================
+
 router.get("/store", async (req, res) => {
+
     try {
+
         const shop = req.query.shop;
 
+
         if (!shop) {
+
             return res.status(400).json({
+
+                success: false,
+
                 error: "Missing shop parameter"
+
             });
-        }
 
-        console.log("🔎 Looking for shop:", shop);
-
-
-        // Make sure shops.json exists
-        if (!fs.existsSync(shopsFile)) {
-            return res.status(404).json({
-                error: "shops.json not found"
-            });
         }
 
 
-        // Read saved shops
-        const shopsData = JSON.parse(
-            fs.readFileSync(shopsFile, "utf8")
+        console.log(
+            "🔎 Looking up shop in Supabase:",
+            shop
         );
 
 
-        // Find matching shop
-        const store = shopsData.find(
-            item => item.shop === shop
-        );
+        // --------------------------------------
+        // Find shop in Supabase
+        // --------------------------------------
+
+        const store = await getShop(shop);
 
 
         if (!store) {
+
             return res.status(404).json({
-                error: "Shop not found",
+
+                success: false,
+
+                error: "Shop not found in Supabase",
+
                 shop
+
             });
+
         }
 
 
-        if (!store.accessToken) {
+        if (!store.access_token) {
+
             return res.status(401).json({
-                error: "No access token saved for this shop"
+
+                success: false,
+
+                error: "No Shopify access token found",
+
+                shop
+
             });
+
         }
 
 
-        console.log("✅ Shop found");
-        console.log("🔑 Access token loaded");
-
-
-        // Call Shopify Admin API
-        const response = await axios.get(
-            `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/shop.json`,
-            {
-                headers: {
-                    "X-Shopify-Access-Token": store.accessToken,
-                    "Content-Type": "application/json"
-                }
-            }
+        console.log(
+            "✅ Shop found in Supabase"
         );
 
 
-        console.log("✅ Shopify data received");
+        // --------------------------------------
+        // Get Shopify store information
+        // --------------------------------------
+
+        const result = await getStoreInfo(
+
+            shop,
+
+            store.access_token
+
+        );
 
 
+        if (!result.success) {
+
+            return res.status(
+                result.status || 500
+            ).json({
+
+                success: false,
+
+                error:
+                    result.message ||
+                    "Unable to retrieve Shopify store",
+
+                details:
+                    result.details || null
+
+            });
+
+        }
+
+
+        console.log(
+            "✅ Shopify store information received"
+        );
+
+
+        // --------------------------------------
         // Return store information
+        // --------------------------------------
+
         res.json({
+
             success: true,
-            shop: response.data.shop
+
+            shop: shop,
+
+            store: result.store
+
         });
 
 
     } catch (error) {
 
         console.error(
-            "❌ Shopify API Error:",
-            error.response?.data || error.message
+            "❌ /api/store ERROR:",
+            error
         );
 
 
         res.status(500).json({
-            error: "Unable to retrieve Shopify store data",
+
+            success: false,
+
+            error:
+                "Unable to retrieve Shopify store data",
+
             details:
-                error.response?.data || error.message
+                error.message
+
         });
+
     }
+
 });
 
-router.get("/debug", (req, res) => {
-    if (!fs.existsSync(shopsFile)) {
-        return res.json({ exists: false });
+
+// ==========================================
+// GET /api/products
+//
+// Example:
+// /api/products?shop=auditly-pro-app.myshopify.com
+// ==========================================
+
+router.get("/products", async (req, res) => {
+
+    try {
+
+        const shop = req.query.shop;
+
+
+        if (!shop) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error: "Missing shop parameter"
+
+            });
+
+        }
+
+
+        console.log(
+            "🔎 Loading products for:",
+            shop
+        );
+
+
+        const store = await getShop(shop);
+
+
+        if (!store) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                error: "Shop not found in Supabase"
+
+            });
+
+        }
+
+
+        if (!store.access_token) {
+
+            return res.status(401).json({
+
+                success: false,
+
+                error: "No Shopify access token found"
+
+            });
+
+        }
+
+
+        const data = await getProducts(
+
+            shop,
+
+            store.access_token
+
+        );
+
+
+        res.json({
+
+            success: true,
+
+            shop: shop,
+
+            products:
+                data.products || []
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ /api/products ERROR:",
+            error
+        );
+
+
+        res.status(
+            error.status || 500
+        ).json({
+
+            success: false,
+
+            error:
+                "Unable to retrieve Shopify products",
+
+            details:
+                error.details ||
+                error.message
+
+        });
+
     }
 
-    const shops = JSON.parse(fs.readFileSync(shopsFile, "utf8"));
+});
+
+
+// ==========================================
+// GET /api/themes
+//
+// Example:
+// /api/themes?shop=auditly-pro-app.myshopify.com
+// ==========================================
+
+router.get("/themes", async (req, res) => {
+
+    try {
+
+        const shop = req.query.shop;
+
+
+        if (!shop) {
+
+            return res.status(400).json({
+
+                success: false,
+
+                error: "Missing shop parameter"
+
+            });
+
+        }
+
+
+        console.log(
+            "🔎 Loading themes for:",
+            shop
+        );
+
+
+        const store = await getShop(shop);
+
+
+        if (!store) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                error: "Shop not found in Supabase"
+
+            });
+
+        }
+
+
+        if (!store.access_token) {
+
+            return res.status(401).json({
+
+                success: false,
+
+                error: "No Shopify access token found"
+
+            });
+
+        }
+
+
+        const data = await getThemes(
+
+            shop,
+
+            store.access_token
+
+        );
+
+
+        res.json({
+
+            success: true,
+
+            shop: shop,
+
+            themes:
+                data.themes || []
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ /api/themes ERROR:",
+            error
+        );
+
+
+        res.status(
+            error.status || 500
+        ).json({
+
+            success: false,
+
+            error:
+                "Unable to retrieve Shopify themes",
+
+            details:
+                error.details ||
+                error.message
+
+        });
+
+    }
+
+});
+
+
+// ==========================================
+// API Health / Test
+// ==========================================
+
+router.get("/test", (req, res) => {
 
     res.json({
-        exists: true,
-        shops: shops.map(shop => ({
-            shop: shop.shop,
-            installed: shop.installed,
-            hasToken: !!shop.accessToken,
-            tokenPrefix: shop.accessToken
-                ? shop.accessToken.substring(0, 10)
-                : null,
-            tokenLength: shop.accessToken
-                ? shop.accessToken.length
-                : 0
-        }))
+
+        success: true,
+
+        message:
+            "Auditly Pro API is working",
+
+        architecture:
+            "Supabase → Shopify API"
+
     });
+
 });
+
+
+// ==========================================
+// Export
+// ==========================================
+
 module.exports = router;
