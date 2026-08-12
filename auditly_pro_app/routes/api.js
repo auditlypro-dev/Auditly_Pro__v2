@@ -1,4 +1,5 @@
 const express = require("express");
+console.log("🔥 USING NEW SUPABASE API FILE");
 const router = express.Router();
 
 const { createClient } = require("@supabase/supabase-js");
