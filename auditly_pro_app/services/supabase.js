@@ -1,28 +1,50 @@
 const { createClient } = require("@supabase/supabase-js");
 
+// ==========================================
+// Auditly Pro v2
+// Supabase Server Connection
+// ==========================================
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY =
     process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+// ==========================================
+// Environment Check
+// ==========================================
 
 if (!SUPABASE_URL) {
     console.error("❌ SUPABASE_URL is missing");
 }
 
 if (!SUPABASE_SERVICE_ROLE_KEY) {
-    console.error("❌ SUPABASE_SERVICE_ROLE_KEY is missing");
+    console.error(
+        "❌ SUPABASE_SERVICE_ROLE_KEY is missing"
+    );
 }
+
+// ==========================================
+// Supabase Client
+// ==========================================
 
 const supabase = createClient(
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY
 );
 
+console.log("🔥 SUPABASE SERVER CLIENT LOADED");
 
 // ==========================================
 // Save / Update Shopify Store
 // ==========================================
 
-async function saveShop(shop, accessToken) {
+async function saveShop(
+    shop,
+    accessToken,
+    refreshToken,
+    expiresAt,
+    refreshTokenExpiresAt
+) {
 
     const now = new Date().toISOString();
 
@@ -31,9 +53,24 @@ async function saveShop(shop, accessToken) {
         .upsert(
             {
                 shop: shop,
-                access_token: accessToken,
-                installed_at: now,
-                updated_at: now
+
+                access_token:
+                    accessToken,
+
+                refresh_token:
+                    refreshToken,
+
+                installed_at:
+                    now,
+
+                updated_at:
+                    now,
+
+                expires_at:
+                    expiresAt,
+
+                refresh_token_expires_at:
+                    refreshTokenExpiresAt
             },
             {
                 onConflict: "shop"
@@ -41,7 +78,6 @@ async function saveShop(shop, accessToken) {
         )
         .select()
         .single();
-
 
     if (error) {
 
@@ -53,16 +89,13 @@ async function saveShop(shop, accessToken) {
         throw error;
     }
 
-
     console.log(
         "✅ SHOP SAVED TO SUPABASE:",
         shop
     );
 
-
     return data;
 }
-
 
 // ==========================================
 // Find Shopify Store
@@ -76,7 +109,6 @@ async function getShop(shop) {
         .eq("shop", shop)
         .single();
 
-
     if (error) {
 
         console.error(
@@ -87,10 +119,8 @@ async function getShop(shop) {
         return null;
     }
 
-
     return data;
 }
-
 
 // ==========================================
 // Export
