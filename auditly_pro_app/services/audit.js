@@ -187,9 +187,64 @@ function auditProducts(products) {
     let productsWithoutTitles = 0;
 
 
+    // ==========================================
+    // IMPORTANT:
+    // No products does NOT equal a perfect score.
+    // ==========================================
+
+    if (
+        !Array.isArray(products) ||
+        products.length === 0
+    ) {
+
+        return {
+
+            score: null,
+
+            rating: "Audit Incomplete",
+
+            totalProducts: 0,
+
+            productsWithIssues: 0,
+
+            productsWithoutTitles: 0,
+
+            productsWithoutDescriptions: 0,
+
+            productsWithoutImages: 0,
+
+            productsWithoutAltText: 0,
+
+            productsWithoutSEO: 0,
+
+            findings: [
+
+                {
+
+                    category: "Products",
+
+                    severity: "warning",
+
+                    message:
+                        "No products were found in the Shopify store. A meaningful product audit could not be completed."
+
+                }
+
+            ]
+
+        };
+
+    }
+
+
+    // ==========================================
+    // Analyze Products
+    // ==========================================
+
     for (const product of products) {
 
         const issues = [];
+
 
         // --------------------------------------
         // Product title
@@ -242,7 +297,10 @@ function auditProducts(products) {
         const images =
             product.images?.edges || [];
 
-        if (images.length === 0) {
+
+        if (
+            images.length === 0
+        ) {
 
             issues.push(
                 "Product has no images."
@@ -258,6 +316,7 @@ function auditProducts(products) {
                         !image.node.altText ||
                         image.node.altText.trim() === ""
                 );
+
 
             if (
                 missingAltText.length > 0
@@ -280,6 +339,7 @@ function auditProducts(products) {
 
         const seo =
             product.seo;
+
 
         if (
             !seo ||
@@ -315,14 +375,19 @@ function auditProducts(products) {
 
 
         // --------------------------------------
-        // Record product findings
+        // Record findings
         // --------------------------------------
 
-        if (issues.length > 0) {
+        if (
+            issues.length > 0
+        ) {
 
             productsWithIssues++;
 
-            for (const issue of issues) {
+
+            for (
+                const issue of issues
+            ) {
 
                 findings.push({
 
@@ -351,9 +416,9 @@ function auditProducts(products) {
     }
 
 
-    // ======================================
+    // ==========================================
     // Score deductions
-    // ======================================
+    // ==========================================
 
     points -=
         productsWithoutTitles * 5;
@@ -374,13 +439,18 @@ function auditProducts(products) {
     points =
         Math.max(
             0,
-            Math.min(100, points)
+            Math.min(
+                100,
+                points
+            )
         );
 
 
     return {
 
         score: points,
+
+        rating: getRating(points),
 
         totalProducts:
             products.length,
@@ -405,6 +475,63 @@ function auditProducts(products) {
 
 
 // ==========================================
+// Rating
+// ==========================================
+
+function getRating(score) {
+
+    if (
+        score === null ||
+        score === undefined
+    ) {
+
+        return "Audit Incomplete";
+
+    }
+
+
+    if (
+        score >= 90
+    ) {
+
+        return "Excellent";
+
+    }
+
+
+    if (
+        score >= 80
+    ) {
+
+        return "Good";
+
+    }
+
+
+    if (
+        score >= 70
+    ) {
+
+        return "Needs Improvement";
+
+    }
+
+
+    if (
+        score >= 50
+    ) {
+
+        return "Poor";
+
+    }
+
+
+    return "Critical";
+
+}
+
+
+// ==========================================
 // Build Recommendations
 // ==========================================
 
@@ -414,6 +541,35 @@ function buildRecommendations(
 
     const recommendations = [];
 
+
+    // ==========================================
+    // No Products
+    // ==========================================
+
+    if (
+        productAudit.totalProducts === 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "Store Setup",
+
+            recommendation:
+                "Add products to your Shopify store or verify that your store is active and that products are available through the Shopify Admin API."
+
+        });
+
+
+        return recommendations;
+
+    }
+
+
+    // ==========================================
+    // Missing Titles
+    // ==========================================
 
     if (
         productAudit.productsWithoutTitles > 0
@@ -433,6 +589,10 @@ function buildRecommendations(
     }
 
 
+    // ==========================================
+    // Missing Descriptions
+    // ==========================================
+
     if (
         productAudit.productsWithoutDescriptions > 0
     ) {
@@ -450,6 +610,10 @@ function buildRecommendations(
 
     }
 
+
+    // ==========================================
+    // Missing Images
+    // ==========================================
 
     if (
         productAudit.productsWithoutImages > 0
@@ -469,6 +633,10 @@ function buildRecommendations(
     }
 
 
+    // ==========================================
+    // Missing Alt Text
+    // ==========================================
+
     if (
         productAudit.productsWithoutAltText > 0
     ) {
@@ -487,6 +655,10 @@ function buildRecommendations(
     }
 
 
+    // ==========================================
+    // Missing SEO
+    // ==========================================
+
     if (
         productAudit.productsWithoutSEO > 0
     ) {
@@ -504,6 +676,10 @@ function buildRecommendations(
 
     }
 
+
+    // ==========================================
+    // No Major Issues
+    // ==========================================
 
     if (
         recommendations.length === 0
@@ -529,7 +705,7 @@ function buildRecommendations(
 
 
 // ==========================================
-// Overall Audit
+// Run Complete Audit
 // ==========================================
 
 async function runAudit(
@@ -543,9 +719,9 @@ async function runAudit(
     );
 
 
-    // ======================================
-    // Retrieve Shopify products
-    // ======================================
+    // ==========================================
+    // Retrieve Products
+    // ==========================================
 
     const products =
         await getProducts(
@@ -559,17 +735,19 @@ async function runAudit(
     );
 
 
-    // ======================================
-    // Audit products
-    // ======================================
+    // ==========================================
+    // Audit Products
+    // ==========================================
 
     const productAudit =
-        auditProducts(products);
+        auditProducts(
+            products
+        );
 
 
-    // ======================================
+    // ==========================================
     // Recommendations
-    // ======================================
+    // ==========================================
 
     const recommendations =
         buildRecommendations(
@@ -577,43 +755,42 @@ async function runAudit(
         );
 
 
-    // ======================================
-    // Overall score
-    // ======================================
+    // ==========================================
+    // Overall Score
+    // ==========================================
 
     const score =
         productAudit.score;
 
 
-    let rating;
+    const rating =
+        productAudit.rating;
 
-    if (score >= 90) {
 
-        rating = "Excellent";
+    // ==========================================
+    // Completion Logging
+    // ==========================================
 
-    } else if (score >= 80) {
+    if (
+        score === null
+    ) {
 
-        rating = "Good";
-
-    } else if (score >= 70) {
-
-        rating = "Needs Improvement";
-
-    } else if (score >= 50) {
-
-        rating = "Poor";
+        console.log(
+            "⚠️ STORE AUDIT INCOMPLETE: No products available for analysis."
+        );
 
     } else {
 
-        rating = "Critical";
+        console.log(
+            `✅ STORE AUDIT COMPLETE: ${score}/100`
+        );
 
     }
 
 
-    console.log(
-        `✅ STORE AUDIT COMPLETE: ${score}/100`
-    );
-
+    // ==========================================
+    // Final Result
+    // ==========================================
 
     return {
 
@@ -627,6 +804,11 @@ async function runAudit(
         score,
 
         rating,
+
+        auditStatus:
+            score === null
+                ? "incomplete"
+                : "complete",
 
         summary: {
 
@@ -644,6 +826,9 @@ async function runAudit(
 
                 score:
                     productAudit.score,
+
+                rating:
+                    productAudit.rating,
 
                 totalProducts:
                     productAudit.totalProducts,
