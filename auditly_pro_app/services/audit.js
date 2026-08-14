@@ -803,4 +803,75 @@ function auditProducts(products) {
 
         productsWithLongSEOTitles,
 
-        productsWithShortMetaDes
+        productsWithShortMetaDescriptions,
+
+                longMetaDescriptions:
+                    productAudit.productsWithLongMetaDescriptions
+            },
+
+            content: {
+
+                productsWithoutDescriptions:
+                    productAudit.productsWithoutDescriptions,
+
+                productsWithShortDescriptions:
+                    productAudit.productsWithShortDescriptions
+            },
+
+            accessibility: {
+
+                productsWithoutAltText:
+                    productAudit.productsWithoutAltText
+            },
+
+            organization: {
+
+                productsWithoutProductType:
+                    productAudit.productsWithoutProductType,
+
+                productsWithoutVendor:
+                    productAudit.productsWithoutVendor,
+
+                productsWithoutHandle:
+                    productAudit.productsWithoutHandle
+            },
+
+            pricing: {
+
+                productsWithoutPrice:
+                    productAudit.productsWithoutPrice
+            },
+
+            inventory: {
+
+                productsOutOfStock:
+                    productAudit.productsOutOfStock,
+
+                productsWithInvalidInventory:
+                    productAudit.productsWithInvalidInventory
+            }
+        },
+
+        findings:
+            productAudit.findings,
+
+        recommendations
+    };
+}
+
+
+// ==========================================
+// Export
+// ==========================================
+
+module.exports = {
+
+    runAudit,
+
+    getProducts,
+
+    auditProducts,
+
+    buildRecommendations
+
+};
