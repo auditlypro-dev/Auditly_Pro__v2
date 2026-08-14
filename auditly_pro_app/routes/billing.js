@@ -2,11 +2,13 @@ const express = require("express");
 
 const router = express.Router();
 
-console.log("🔥 BILLING ROUTER LOADED");
+const { createClient } =
+    require("@supabase/supabase-js");
+
+console.log("💳 USING AUDITLY PRO BILLING FILE");
 
 // ==========================================
-// Auditly Pro v2
-// Shopify Billing
+// Configuration
 // ==========================================
 
 const SHOPIFY_API_VERSION = "2026-07";
@@ -17,14 +19,15 @@ const SHOPIFY_API_KEY =
 const SHOPIFY_API_SECRET =
     process.env.SHOPIFY_API_SECRET;
 
-const APP_URL =
+const SUPABASE_URL =
+    process.env.SUPABASE_URL;
+
+const SUPABASE_SERVICE_ROLE_KEY =
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const HOST =
     process.env.HOST ||
     "https://app.auditlypro.com";
-
-
-// ==========================================
-// Configuration
-// ==========================================
 
 const PLAN_NAME =
     "Auditly Pro";
@@ -34,6 +37,51 @@ const PLAN_PRICE =
 
 const TRIAL_DAYS =
     7;
+
+
+// ==========================================
+// Supabase
+// ==========================================
+
+const supabase =
+    createClient(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY
+    );
+
+
+// ==========================================
+// Find Shop
+// ==========================================
+
+async function getShop(shop) {
+
+    const {
+        data,
+        error
+    } = await supabase
+        .from("shops")
+        .select("*")
+        .eq("shop", shop)
+        .limit(1);
+
+    if (error) {
+
+        throw new Error(
+            `Supabase lookup failed: ${error.message}`
+        );
+
+    }
+
+    if (!data || data.length === 0) {
+
+        return null;
+
+    }
+
+    return data[0];
+
+}
 
 
 // ==========================================
@@ -51,28 +99,21 @@ async function shopifyGraphQL(
         await fetch(
             `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
             {
-
                 method: "POST",
 
                 headers: {
-
                     "Content-Type":
                         "application/json",
 
                     "X-Shopify-Access-Token":
                         accessToken
-
                 },
 
                 body:
                     JSON.stringify({
-
                         query,
-
                         variables
-
                     })
-
             }
         );
 
@@ -84,7 +125,7 @@ async function shopifyGraphQL(
     if (!response.ok) {
 
         throw new Error(
-            `Shopify GraphQL HTTP error: ${response.status}`
+            `Shopify billing request failed: ${response.status}`
         );
 
     }
@@ -94,10 +135,7 @@ async function shopifyGraphQL(
 
         throw new Error(
             data.errors
-                .map(
-                    error =>
-                        error.message
-                )
+                .map(error => error.message)
                 .join("; ")
         );
 
@@ -110,276 +148,7 @@ async function shopifyGraphQL(
 
 
 // ==========================================
-// GET SHOP RECORD
-// ==========================================
-
-async function getShopRecord(shop) {
-
-    const {
-        data,
-        error
-    } = await require("@supabase/supabase-js")
-        .createClient(
-            process.env.SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        )
-        .from("shops")
-        .select("*")
-        .eq("shop", shop)
-        .limit(1);
-
-
-    if (error) {
-
-        throw new Error(
-            `Supabase shop lookup failed: ${error.message}`
-        );
-
-    }
-
-
-    if (
-        !data ||
-        data.length === 0
-    ) {
-
-        return null;
-
-    }
-
-
-    return data[0];
-
-}
-
-
-// ==========================================
-// GET VALID ACCESS TOKEN
-// ==========================================
-//
-// This uses the same token fields that your
-// working api.js already uses.
-//
-// ==========================================
-
-async function getValidAccessToken(
-    shop,
-    shopRecord
-) {
-
-    if (
-        !shopRecord ||
-        !shopRecord.access_token
-    ) {
-
-        throw new Error(
-            "No Shopify access token is stored for this shop."
-        );
-
-    }
-
-
-    if (
-        !shopRecord.expires_at
-    ) {
-
-        throw new Error(
-            "This shop does not have an expiring Shopify token. Reinstall the app."
-        );
-
-    }
-
-
-    const expirationTime =
-        new Date(
-            shopRecord.expires_at
-        ).getTime();
-
-
-    const currentTime =
-        Date.now();
-
-
-    const refreshBuffer =
-        5 * 60 * 1000;
-
-
-    if (
-        currentTime <
-        (
-            expirationTime -
-            refreshBuffer
-        )
-    ) {
-
-        return shopRecord.access_token;
-
-    }
-
-
-    // ------------------------------------------
-    // Refresh token
-    // ------------------------------------------
-
-    if (
-        !shopRecord.refresh_token
-    ) {
-
-        throw new Error(
-            "Shopify access token has expired and no refresh token is available."
-        );
-
-    }
-
-
-    console.log(
-        "🔄 Refreshing Shopify billing access token..."
-    );
-
-
-    const response =
-        await fetch(
-            `https://${shop}/admin/oauth/access_token`,
-            {
-
-                method: "POST",
-
-                headers: {
-
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-
-                    "Accept":
-                        "application/json"
-
-                },
-
-                body:
-                    new URLSearchParams({
-
-                        client_id:
-                            SHOPIFY_API_KEY,
-
-                        client_secret:
-                            SHOPIFY_API_SECRET,
-
-                        grant_type:
-                            "refresh_token",
-
-                        refresh_token:
-                            shopRecord.refresh_token
-
-                    }).toString()
-
-            }
-        );
-
-
-    const tokenData =
-        await response.json();
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            tokenData.error_description ||
-            tokenData.error ||
-            "Shopify token refresh failed."
-        );
-
-    }
-
-
-    if (
-        !tokenData.access_token
-    ) {
-
-        throw new Error(
-            "Shopify did not return a new access token."
-        );
-
-    }
-
-
-    const now =
-        Date.now();
-
-
-    const expiresAt =
-        new Date(
-            now +
-            (
-                tokenData.expires_in *
-                1000
-            )
-        ).toISOString();
-
-
-    const refreshTokenExpiresAt =
-        tokenData.refresh_token_expires_in
-            ? new Date(
-                now +
-                (
-                    tokenData.refresh_token_expires_in *
-                    1000
-                )
-            ).toISOString()
-            : shopRecord.refresh_token_expires_at;
-
-
-    const supabase =
-        require("@supabase/supabase-js")
-            .createClient(
-                process.env.SUPABASE_URL,
-                process.env.SUPABASE_SERVICE_ROLE_KEY
-            );
-
-
-    const {
-        error
-    } = await supabase
-        .from("shops")
-        .update({
-
-            access_token:
-                tokenData.access_token,
-
-            refresh_token:
-                tokenData.refresh_token ||
-                shopRecord.refresh_token,
-
-            expires_at:
-                expiresAt,
-
-            refresh_token_expires_at:
-                refreshTokenExpiresAt,
-
-            updated_at:
-                new Date().toISOString()
-
-        })
-        .eq(
-            "shop",
-            shop
-        );
-
-
-    if (error) {
-
-        throw new Error(
-            `Unable to save refreshed Shopify token: ${error.message}`
-        );
-
-    }
-
-
-    return tokenData.access_token;
-
-}
-
-
-// ==========================================
-// BILLING STATUS
+// Billing Status
 // GET /billing/status?shop=...
 // ==========================================
 
@@ -398,21 +167,16 @@ router.get(
                 return res
                     .status(400)
                     .json({
-
                         success: false,
-
                         error:
                             "Missing shop parameter"
-
                     });
 
             }
 
 
             const shopRecord =
-                await getShopRecord(
-                    shop
-                );
+                await getShop(shop);
 
 
             if (!shopRecord) {
@@ -420,24 +184,25 @@ router.get(
                 return res
                     .status(404)
                     .json({
-
                         success: false,
-
                         error:
-                            "Shop not found",
-
-                        shop
-
+                            "Shop not found"
                     });
 
             }
 
 
-            const accessToken =
-                await getValidAccessToken(
+            if (!shopRecord.access_token) {
+
+                return res.json({
+                    success: true,
                     shop,
-                    shopRecord
-                );
+                    active: false,
+                    status:
+                        "NOT_CONNECTED"
+                });
+
+            }
 
 
             const query = `
@@ -451,12 +216,9 @@ router.get(
                             id
                             name
                             status
-
-                            trialDays
-
                             createdAt
-
                             currentPeriodEnd
+                            trialDays
 
                         }
 
@@ -470,24 +232,19 @@ router.get(
             const data =
                 await shopifyGraphQL(
                     shop,
-                    accessToken,
+                    shopRecord.access_token,
                     query
                 );
 
 
             const subscriptions =
-                data
-                    .data
+                data.data
                     .currentAppInstallation
                     .activeSubscriptions || [];
 
 
-            const activeSubscription =
-                subscriptions.find(
-                    subscription =>
-                        subscription.status ===
-                        "ACTIVE"
-                );
+            const active =
+                subscriptions.length > 0;
 
 
             res.json({
@@ -496,26 +253,22 @@ router.get(
 
                 shop,
 
-                subscribed:
-                    Boolean(
-                        activeSubscription
-                    ),
+                active,
 
-                plan:
-                    activeSubscription
-                        ? activeSubscription.name
-                        : null,
+                status:
+                    active
+                        ? subscriptions[0].status
+                        : "INACTIVE",
 
-                subscription:
-                    activeSubscription ||
-                    null
+                subscriptions
 
             });
+
 
         } catch (error) {
 
             console.error(
-                "❌ Billing status error:",
+                "❌ BILLING STATUS ERROR:",
                 error.message
             );
 
@@ -527,7 +280,7 @@ router.get(
                     success: false,
 
                     error:
-                        "Unable to retrieve billing status",
+                        "Unable to check billing status",
 
                     details:
                         error.message
@@ -541,8 +294,8 @@ router.get(
 
 
 // ==========================================
-// CREATE SUBSCRIPTION
-// POST /billing/upgrade?shop=...
+// Create Subscription
+// POST /billing/upgrade
 // ==========================================
 
 router.post(
@@ -573,15 +326,13 @@ router.post(
 
 
             console.log(
-                "💳 Creating Auditly Pro subscription for:",
+                "💳 Starting billing upgrade for:",
                 shop
             );
 
 
             const shopRecord =
-                await getShopRecord(
-                    shop
-                );
+                await getShop(shop);
 
 
             if (!shopRecord) {
@@ -593,32 +344,39 @@ router.post(
                         success: false,
 
                         error:
-                            "Shop not found",
-
-                        shop
+                            "Shop not found. Connect Shopify first."
 
                     });
 
             }
 
 
-            const accessToken =
-                await getValidAccessToken(
-                    shop,
-                    shopRecord
-                );
+            if (!shopRecord.access_token) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "No Shopify access token found."
+
+                    });
+
+            }
 
 
-            // ------------------------------------------
-            // Shopify subscription mutation
-            // ------------------------------------------
+            // ======================================
+            // Shopify Subscription
+            // ======================================
 
             const mutation = `
 
-                mutation AppSubscriptionCreate(
-                    $name: String!
-                    $lineItems: [AppSubscriptionLineItemInput!]!
-                    $returnUrl: URL!
+                mutation CreateAuditlySubscription(
+                    $name: String!,
+                    $lineItems: [AppSubscriptionLineItemInput!]!,
+                    $returnUrl: URL!,
                     $trialDays: Int
                 ) {
 
@@ -628,9 +386,9 @@ router.post(
 
                         returnUrl: $returnUrl
 
-                        lineItems: $lineItems
-
                         trialDays: $trialDays
+
+                        lineItems: $lineItems
 
                     ) {
 
@@ -658,16 +416,13 @@ router.post(
             `;
 
 
-            const returnUrl =
-                `${APP_URL}/billing/callback?shop=${encodeURIComponent(shop)}`;
-
-
             const variables = {
 
                 name:
                     PLAN_NAME,
 
-                returnUrl,
+                returnUrl:
+                    `${HOST}/billing/callback?shop=${encodeURIComponent(shop)}`,
 
                 trialDays:
                     TRIAL_DAYS,
@@ -707,30 +462,29 @@ router.post(
             const data =
                 await shopifyGraphQL(
                     shop,
-                    accessToken,
+                    shopRecord.access_token,
                     mutation,
                     variables
                 );
 
 
-            const billing =
-                data
-                    .data
+            const result =
+                data.data
                     .appSubscriptionCreate;
 
 
-            // ------------------------------------------
-            // Shopify reported an error
-            // ------------------------------------------
+            // ======================================
+            // Shopify Validation Errors
+            // ======================================
 
             if (
-                billing.userErrors &&
-                billing.userErrors.length > 0
+                result.userErrors &&
+                result.userErrors.length > 0
             ) {
 
                 console.error(
-                    "❌ Shopify billing errors:",
-                    billing.userErrors
+                    "❌ BILLING USER ERRORS:",
+                    result.userErrors
                 );
 
 
@@ -741,10 +495,10 @@ router.post(
                         success: false,
 
                         error:
-                            "Shopify could not create the subscription.",
+                            "Shopify rejected the subscription.",
 
                         details:
-                            billing.userErrors
+                            result.userErrors
 
                     });
 
@@ -752,24 +506,39 @@ router.post(
 
 
             if (
-                !billing.confirmationUrl
+                !result.confirmationUrl
             ) {
 
-                throw new Error(
-                    "Shopify did not return a billing confirmation URL."
-                );
+                return res
+                    .status(500)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "Shopify did not return a billing confirmation URL."
+
+                    });
 
             }
 
 
             console.log(
-                "✅ Shopify billing confirmation URL created"
+                "✅ Shopify billing subscription created:",
+                result.appSubscription?.id
             );
 
+
+            // ======================================
+            // Send Merchant to Shopify
+            // ======================================
 
             res.json({
 
                 success: true,
+
+                message:
+                    "Billing approval required.",
 
                 plan:
                     PLAN_NAME,
@@ -781,19 +550,18 @@ router.post(
                     TRIAL_DAYS,
 
                 subscriptionId:
-                    billing
-                        .appSubscription
-                        ?.id || null,
+                    result.appSubscription?.id,
 
                 confirmationUrl:
-                    billing.confirmationUrl
+                    result.confirmationUrl
 
             });
+
 
         } catch (error) {
 
             console.error(
-                "❌ Billing upgrade error:",
+                "❌ BILLING UPGRADE ERROR:",
                 error
             );
 
@@ -805,7 +573,7 @@ router.post(
                     success: false,
 
                     error:
-                        "Unable to start Shopify subscription",
+                        "Unable to create Shopify subscription",
 
                     details:
                         error.message
@@ -819,8 +587,8 @@ router.post(
 
 
 // ==========================================
-// BILLING CALLBACK
-// GET /billing/callback?shop=...
+// Billing Callback
+// GET /billing/callback
 // ==========================================
 
 router.get(
@@ -836,16 +604,10 @@ router.get(
             return res
                 .status(400)
                 .send(
-                    "Missing shop parameter."
+                    "Missing Shopify shop parameter."
                 );
 
         }
-
-
-        console.log(
-            "✅ Returned from Shopify billing:",
-            shop
-        );
 
 
         res.send(`
@@ -858,42 +620,40 @@ router.get(
 
                 <meta charset="UTF-8">
 
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1.0"
+                >
+
                 <title>
                     Auditly Pro Billing
                 </title>
 
             </head>
 
-            <body style="
-                font-family:Arial,sans-serif;
-                max-width:600px;
-                margin:60px auto;
-                padding:20px;
-                text-align:center;
-            ">
+            <body>
 
                 <h1>
-                    🚀 Auditly Pro
+                    🎉 Welcome to Auditly Pro!
                 </h1>
 
-                <h2>
-                    Billing Setup Complete
-                </h2>
-
                 <p>
-                    Shopify has returned you to Auditly Pro.
+                    Your Shopify billing process
+                    has returned to Auditly Pro.
                 </p>
 
                 <p>
-                    You can now return to your
-                    Auditly Pro dashboard.
+                    We are checking your
+                    subscription status.
                 </p>
 
-                <p>
-                    <a href="/">
-                        Return to Auditly Pro
-                    </a>
-                </p>
+                <br>
+
+                <a
+                    href="/dashboard"
+                >
+                    Return to Auditly Pro
+                </a>
 
             </body>
 
@@ -906,8 +666,8 @@ router.get(
 
 
 // ==========================================
-// GET BILLING PLAN INFORMATION
-// GET /billing/
+// Billing Information
+// GET /billing
 // ==========================================
 
 router.get(
@@ -918,20 +678,23 @@ router.get(
 
             success: true,
 
+            product:
+                "Auditly Pro",
+
             plan:
-                PLAN_NAME,
+                "Auditly Pro",
 
             price:
                 "$27/month",
 
-            interval:
-                "EVERY_30_DAYS",
+            trial:
+                "7 days",
 
-            trialDays:
-                TRIAL_DAYS,
+            billing:
+                "Every 30 days",
 
             status:
-                "Available"
+                "Shopify Billing API Ready"
 
         });
 
@@ -940,7 +703,7 @@ router.get(
 
 
 // ==========================================
-// EXPORT
+// Export
 // ==========================================
 
 module.exports = router;
