@@ -196,6 +196,338 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
+    // Render Audit Results
+    // ==========================================
+
+    function renderAuditResults(data) {
+
+        const score =
+            Number.isFinite(Number(data.score))
+                ? Number(data.score)
+                : 0;
+
+        const rating =
+            data.rating ||
+            "Unknown";
+
+        const summary =
+            data.summary || {};
+
+        const totalProducts =
+            Number(summary.totalProducts || 0);
+
+        const productsWithIssues =
+            Number(summary.productsWithIssues || 0);
+
+        const findings =
+            Array.isArray(data.findings)
+                ? data.findings
+                : [];
+
+        const recommendations =
+            Array.isArray(data.recommendations)
+                ? data.recommendations
+                : [];
+
+
+        // ======================================
+        // Zero-product warning
+        // ======================================
+
+        let zeroProductWarning = "";
+
+        if (totalProducts === 0) {
+
+            zeroProductWarning = `
+
+                <div style="
+                    margin-top:20px;
+                    padding:15px;
+                    border:1px solid #f0ad4e;
+                    border-radius:8px;
+                    background:#fff8e8;
+                ">
+
+                    ⚠️
+                    <strong>
+                        No products were found.
+                    </strong>
+
+                    <br><br>
+
+                    Auditly Pro could not perform
+                    a meaningful product audit because
+                    Shopify returned zero products.
+
+                    <br><br>
+
+                    Your store may currently be
+                    inactive, empty, paused, or have
+                    no products available through the
+                    Shopify API.
+
+                </div>
+
+            `;
+
+        }
+
+
+        // ======================================
+        // Findings
+        // ======================================
+
+        let findingsHtml = "";
+
+        if (findings.length === 0) {
+
+            findingsHtml = `
+
+                <p>
+                    🟢 No product issues were detected.
+                </p>
+
+            `;
+
+        } else {
+
+            findingsHtml = findings
+                .map((finding) => {
+
+                    const severity =
+                        finding.severity ||
+                        "notice";
+
+                    const category =
+                        finding.category ||
+                        "General";
+
+                    const title =
+                        finding.productTitle ||
+                        "Store";
+
+                    const message =
+                        finding.message ||
+                        "Issue detected.";
+
+                    return `
+
+                        <div style="
+                            margin-bottom:12px;
+                            padding:12px;
+                            border:1px solid #ddd;
+                            border-radius:8px;
+                        ">
+
+                            <strong>
+                                ${escapeHtml(category)}
+                            </strong>
+
+                            <br>
+
+                            <strong>
+                                ${escapeHtml(title)}
+                            </strong>
+
+                            <br>
+
+                            <span>
+                                ${escapeHtml(message)}
+                            </span>
+
+                            <br>
+
+                            <small>
+                                Severity:
+                                ${escapeHtml(severity)}
+                            </small>
+
+                        </div>
+
+                    `;
+
+                })
+                .join("");
+
+        }
+
+
+        // ======================================
+        // Recommendations
+        // ======================================
+
+        let recommendationsHtml = "";
+
+        if (
+            recommendations.length === 0
+        ) {
+
+            recommendationsHtml = `
+                <p>
+                    No recommendations available.
+                </p>
+            `;
+
+        } else {
+
+            recommendationsHtml =
+                recommendations
+                    .map((recommendation) => {
+
+                        return `
+
+                            <div style="
+                                margin-bottom:12px;
+                                padding:12px;
+                                border:1px solid #ddd;
+                                border-radius:8px;
+                            ">
+
+                                <strong>
+                                    ${escapeHtml(
+                                        recommendation.priority ||
+                                        "General"
+                                    )}
+                                </strong>
+
+                                <br>
+
+                                ${escapeHtml(
+                                    recommendation.category ||
+                                    "Optimization"
+                                )}
+
+                                <br><br>
+
+                                ${escapeHtml(
+                                    recommendation.recommendation ||
+                                    ""
+                                )}
+
+                            </div>
+
+                        `;
+
+                    })
+                    .join("");
+
+        }
+
+
+        // ======================================
+        // Display complete audit
+        // ======================================
+
+        resultsElement.innerHTML = `
+
+            <div>
+
+                <h2>
+                    🧾 Audit Results
+                </h2>
+
+                <div style="
+                    margin:20px 0;
+                    padding:20px;
+                    border:1px solid #ddd;
+                    border-radius:10px;
+                    text-align:center;
+                ">
+
+                    <div style="
+                        font-size:42px;
+                        font-weight:bold;
+                    ">
+
+                        ${score}/100
+
+                    </div>
+
+                    <div style="
+                        font-size:20px;
+                        margin-top:5px;
+                    ">
+
+                        ${escapeHtml(rating)}
+
+                    </div>
+
+                </div>
+
+
+                <div style="
+                    margin-bottom:20px;
+                    padding:15px;
+                    border:1px solid #ddd;
+                    border-radius:8px;
+                ">
+
+                    <strong>
+                        Store:
+                    </strong>
+
+                    ${escapeHtml(
+                        data.shop || shop
+                    )}
+
+                    <br><br>
+
+                    <strong>
+                        Products Audited:
+                    </strong>
+
+                    ${totalProducts}
+
+                    <br>
+
+                    <strong>
+                        Products With Issues:
+                    </strong>
+
+                    ${productsWithIssues}
+
+                </div>
+
+
+                ${zeroProductWarning}
+
+
+                <h3>
+                    🔍 Findings
+                </h3>
+
+                ${findingsHtml}
+
+
+                <h3 style="margin-top:25px;">
+                    💡 Recommendations
+                </h3>
+
+                ${recommendationsHtml}
+
+
+                <div style="
+                    margin-top:25px;
+                    font-size:13px;
+                    opacity:.7;
+                ">
+
+                    Audit completed:
+                    ${escapeHtml(
+                        data.auditDate ||
+                        new Date().toISOString()
+                    )}
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    // ==========================================
     // Run Store Audit
     // ==========================================
 
@@ -209,12 +541,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     🔄
                     <strong>
-                        Starting store audit...
+                        Running Store Audit...
                     </strong>
 
                     <br><br>
 
-                    Auditly Pro is connecting to
+                    Auditly Pro is analyzing
                     your Shopify store.
 
                 `;
@@ -236,50 +568,56 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                         );
 
+
                     const data =
                         await response.json();
+
+
+                    // ==================================
+                    // Audit completed successfully
+                    // ==================================
 
                     if (
                         response.ok &&
                         data.success
                     ) {
 
-                        resultsElement.innerHTML = `
+                        console.log(
+                            "✅ Audit results received:",
+                            data
+                        );
 
-                            🟢
-                            <strong>
-                                Audit started successfully.
-                            </strong>
+                        renderAuditResults(
+                            data
+                        );
 
-                            <br><br>
-
-                            ${escapeHtml(
-                                data.message ||
-                                "Audit is running."
-                            )}
-
-                        `;
-
-                    } else {
-
-                        resultsElement.innerHTML = `
-
-                            🔴
-                            <strong>
-                                Audit could not be started.
-                            </strong>
-
-                            <br><br>
-
-                            ${escapeHtml(
-                                data.error ||
-                                data.message ||
-                                "Unknown error."
-                            )}
-
-                        `;
+                        return;
 
                     }
+
+
+                    // ==================================
+                    // Audit failed
+                    // ==================================
+
+                    resultsElement.innerHTML = `
+
+                        🔴
+                        <strong>
+                            Audit could not be completed.
+                        </strong>
+
+                        <br><br>
+
+                        ${escapeHtml(
+                            data.error ||
+                            data.message ||
+                            data.details ||
+                            "Unknown error."
+                        )}
+
+                    `;
+
 
                 } catch (error) {
 
@@ -292,8 +630,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         🔴
                         <strong>
-                            Unable to start audit.
+                            Unable to complete audit.
                         </strong>
+
+                        <br><br>
+
+                        ${escapeHtml(
+                            error.message ||
+                            "Network error."
+                        )}
 
                     `;
 
