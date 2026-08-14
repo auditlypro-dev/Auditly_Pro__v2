@@ -1,5 +1,6 @@
 // ==========================================
-// Auditly Pro v2 Dashboard JavaScript
+// Auditly Pro v2
+// Dashboard JavaScript
 // ==========================================
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -8,13 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Configuration
     // ==========================================
 
-    const shop =
-        "auditly-pro-app.myshopify.com";
-
-
-    // ==========================================
-    // Dashboard Elements
-    // ==========================================
+    const shop = "auditly-pro-app.myshopify.com";
 
     const statusElement =
         document.getElementById("status");
@@ -27,6 +22,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const resultsElement =
         document.getElementById("results");
+
+
+    // ==========================================
+    // Escape HTML
+    // ==========================================
+
+    function escapeHtml(value) {
+
+        return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+    }
+
+
+    // ==========================================
+    // Severity Display
+    // ==========================================
+
+    function severityLabel(severity) {
+
+        const value =
+            String(severity || "notice").toLowerCase();
+
+        switch (value) {
+
+            case "critical":
+                return "🔴 Critical";
+
+            case "high":
+                return "🔴 High";
+
+            case "medium":
+                return "🟠 Medium";
+
+            case "low":
+                return "🟢 Low";
+
+            case "notice":
+            default:
+                return "🟡 Notice";
+
+        }
+
+    }
 
 
     // ==========================================
@@ -44,6 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 await response.json();
 
             if (
+                response.ok &&
                 data.success &&
                 data.server === "Online"
             ) {
@@ -126,12 +170,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         <br><br>
 
-                        <span>
-                            Currency:
-                            ${escapeHtml(
-                                store.currencyCode || "N/A"
-                            )}
-                        </span>
+                        Currency:
+                        ${escapeHtml(
+                            store.currencyCode || "N/A"
+                        )}
 
                     </div>
 
@@ -180,17 +222,167 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // Escape HTML
+    // Render Findings
     // ==========================================
 
-    function escapeHtml(value) {
+    function renderFindings(findings) {
 
-        return String(value)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+        if (!findings.length) {
+
+            return `
+                <div style="
+                    padding:15px;
+                    border:1px solid #ddd;
+                    border-radius:8px;
+                ">
+                    🟢
+                    <strong>
+                        No product issues were detected.
+                    </strong>
+                </div>
+            `;
+
+        }
+
+
+        return findings.map(finding => {
+
+            const category =
+                finding.category || "General";
+
+            const product =
+                finding.productTitle || "Store";
+
+            const message =
+                finding.message || "Issue detected.";
+
+            const severity =
+                finding.severity || "notice";
+
+            const recommendation =
+                finding.recommendation;
+
+
+            return `
+
+                <div style="
+                    margin-bottom:15px;
+                    padding:15px;
+                    border:1px solid #ddd;
+                    border-radius:8px;
+                ">
+
+                    <strong>
+                        ${escapeHtml(category)}
+                    </strong>
+
+                    <br><br>
+
+                    <strong>
+                        ${escapeHtml(product)}
+                    </strong>
+
+                    <br><br>
+
+                    ${escapeHtml(message)}
+
+                    <br><br>
+
+                    <strong>
+                        Severity:
+                    </strong>
+
+                    ${escapeHtml(
+                        severityLabel(severity)
+                    )}
+
+                    ${
+                        recommendation
+                            ? `
+                                <br><br>
+
+                                <strong>
+                                    💡 Recommendation:
+                                </strong>
+
+                                <br>
+
+                                ${escapeHtml(
+                                    recommendation
+                                )}
+                              `
+                            : ""
+                    }
+
+                </div>
+
+            `;
+
+        }).join("");
+
+    }
+
+
+    // ==========================================
+    // Render Overall Recommendations
+    // ==========================================
+
+    function renderRecommendations(
+        recommendations
+    ) {
+
+        if (!recommendations.length) {
+
+            return `
+                <p>
+                    No additional recommendations available.
+                </p>
+            `;
+
+        }
+
+
+        return recommendations.map(
+            recommendation => {
+
+                return `
+
+                    <div style="
+                        margin-bottom:15px;
+                        padding:15px;
+                        border:1px solid #ddd;
+                        border-radius:8px;
+                    ">
+
+                        <strong>
+                            ${escapeHtml(
+                                recommendation.priority ||
+                                "General"
+                            )}
+                        </strong>
+
+                        <br><br>
+
+                        <strong>
+                            ${escapeHtml(
+                                recommendation.category ||
+                                "Optimization"
+                            )}
+                        </strong>
+
+                        <br><br>
+
+                        ${escapeHtml(
+                            recommendation.recommendation ||
+                            ""
+                        )}
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
 
     }
 
@@ -204,11 +396,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const score =
             Number.isFinite(Number(data.score))
                 ? Number(data.score)
-                : 0;
+                : null;
 
         const rating =
             data.rating ||
-            "Unknown";
+            "Audit Incomplete";
 
         const summary =
             data.summary || {};
@@ -231,7 +423,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         // ======================================
-        // Zero-product warning
+        // Score
+        // ======================================
+
+        const scoreDisplay =
+            score === null
+                ? "N/A"
+                : `${score}/100`;
+
+
+        // ======================================
+        // Zero Product Warning
         // ======================================
 
         let zeroProductWarning = "";
@@ -241,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
             zeroProductWarning = `
 
                 <div style="
-                    margin-top:20px;
+                    margin:20px 0;
                     padding:15px;
                     border:1px solid #f0ad4e;
                     border-radius:8px;
@@ -256,15 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <br><br>
 
                     Auditly Pro could not perform
-                    a meaningful product audit because
-                    Shopify returned zero products.
-
-                    <br><br>
-
-                    Your store may currently be
-                    inactive, empty, paused, or have
-                    no products available through the
-                    Shopify API.
+                    a meaningful product audit.
 
                 </div>
 
@@ -274,148 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         // ======================================
-        // Findings
-        // ======================================
-
-        let findingsHtml = "";
-
-        if (findings.length === 0) {
-
-            findingsHtml = `
-
-                <p>
-                    🟢 No product issues were detected.
-                </p>
-
-            `;
-
-        } else {
-
-            findingsHtml = findings
-                .map((finding) => {
-
-                    const severity =
-                        finding.severity ||
-                        "notice";
-
-                    const category =
-                        finding.category ||
-                        "General";
-
-                    const title =
-                        finding.productTitle ||
-                        "Store";
-
-                    const message =
-                        finding.message ||
-                        "Issue detected.";
-
-                    return `
-
-                        <div style="
-                            margin-bottom:12px;
-                            padding:12px;
-                            border:1px solid #ddd;
-                            border-radius:8px;
-                        ">
-
-                            <strong>
-                                ${escapeHtml(category)}
-                            </strong>
-
-                            <br>
-
-                            <strong>
-                                ${escapeHtml(title)}
-                            </strong>
-
-                            <br>
-
-                            <span>
-                                ${escapeHtml(message)}
-                            </span>
-
-                            <br>
-
-                            <small>
-                                Severity:
-                                ${escapeHtml(severity)}
-                            </small>
-
-                        </div>
-
-                    `;
-
-                })
-                .join("");
-
-        }
-
-
-        // ======================================
-        // Recommendations
-        // ======================================
-
-        let recommendationsHtml = "";
-
-        if (
-            recommendations.length === 0
-        ) {
-
-            recommendationsHtml = `
-                <p>
-                    No recommendations available.
-                </p>
-            `;
-
-        } else {
-
-            recommendationsHtml =
-                recommendations
-                    .map((recommendation) => {
-
-                        return `
-
-                            <div style="
-                                margin-bottom:12px;
-                                padding:12px;
-                                border:1px solid #ddd;
-                                border-radius:8px;
-                            ">
-
-                                <strong>
-                                    ${escapeHtml(
-                                        recommendation.priority ||
-                                        "General"
-                                    )}
-                                </strong>
-
-                                <br>
-
-                                ${escapeHtml(
-                                    recommendation.category ||
-                                    "Optimization"
-                                )}
-
-                                <br><br>
-
-                                ${escapeHtml(
-                                    recommendation.recommendation ||
-                                    ""
-                                )}
-
-                            </div>
-
-                        `;
-
-                    })
-                    .join("");
-
-        }
-
-
-        // ======================================
-        // Display complete audit
+        // Final Results
         // ======================================
 
         resultsElement.innerHTML = `
@@ -425,6 +478,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h2>
                     🧾 Audit Results
                 </h2>
+
+
+                <!-- SCORE -->
 
                 <div style="
                     margin:20px 0;
@@ -439,7 +495,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         font-weight:bold;
                     ">
 
-                        ${score}/100
+                        ${scoreDisplay}
 
                     </div>
 
@@ -454,6 +510,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 </div>
 
+
+                <!-- SUMMARY -->
 
                 <div style="
                     margin-bottom:20px;
@@ -492,19 +550,31 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${zeroProductWarning}
 
 
+                <!-- FINDINGS -->
+
                 <h3>
                     🔍 Findings
                 </h3>
 
-                ${findingsHtml}
+                ${renderFindings(findings)}
 
 
-                <h3 style="margin-top:25px;">
+                <!-- RECOMMENDATIONS -->
+
+                <h3 style="
+                    margin-top:25px;
+                ">
+
                     💡 Recommendations
+
                 </h3>
 
-                ${recommendationsHtml}
+                ${renderRecommendations(
+                    recommendations
+                )}
 
+
+                <!-- AUDIT DATE -->
 
                 <div style="
                     margin-top:25px;
@@ -513,6 +583,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ">
 
                     Audit completed:
+
                     ${escapeHtml(
                         data.auditDate ||
                         new Date().toISOString()
@@ -537,6 +608,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "click",
             async () => {
 
+                auditButton.disabled = true;
+
                 resultsElement.innerHTML = `
 
                     🔄
@@ -551,7 +624,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 `;
 
-                auditButton.disabled = true;
 
                 try {
 
@@ -573,10 +645,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         await response.json();
 
 
-                    // ==================================
-                    // Audit completed successfully
-                    // ==================================
-
                     if (
                         response.ok &&
                         data.success
@@ -596,10 +664,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
 
 
-                    // ==================================
-                    // Audit failed
-                    // ==================================
-
                     resultsElement.innerHTML = `
 
                         🔴
@@ -617,7 +681,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         )}
 
                     `;
-
 
                 } catch (error) {
 
