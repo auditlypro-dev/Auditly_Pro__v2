@@ -147,19 +147,20 @@ router.get("/callback", async (req, res) => {
                     "Accept":
                         "application/json"
                 },
-
                 body: JSON.stringify({
 
-                    client_id:
-                        SHOPIFY_API_KEY,
+    client_id:
+        SHOPIFY_API_KEY,
 
-                    client_secret:
-                        SHOPIFY_API_SECRET,
+    client_secret:
+        SHOPIFY_API_SECRET,
 
-                    code:
-                        code
+    code:
+        code,
 
-                })
+    expiring: 1
+
+})
             }
         );
 
