@@ -1,8 +1,3 @@
-I found it. The file you pasted is literally cut off at:
-productsW
-So Render's Unexpected end of input at line 952 is exactly what we'd expect. Nothing is wrong with your Shopify connection or Supabase.
-Do not change anything else. Replace the incomplete audit.js with the corrected complete version below.
-Writing
 // ==========================================
 // Auditly Pro v3
 // Shopify Store Audit Engine
@@ -807,7 +802,7 @@ function auditProducts(products) {
         productsWithShortSEOTitles,
 
         productsWithLongSEOTitles,
-
+       
         productsWithShortMetaDescriptions,
 
         productsWithLongMetaDescriptions,
@@ -1334,19 +1329,5 @@ module.exports = {
     buildRecommendations
 
 };
-Now do exactly this
-Open services/audit.js in GitHub.
-Select all of the existing contents.
-Delete them.
-Paste the complete file above.
-Commit the change to your main branch.
-Let Render deploy.
-Do not click Run Store Audit until Render says the deployment is live.
-What we want to see in Render
-The previous error:
-SyntaxError: Unexpected end of input
-should be completely gone.
-You should again see your server start normally instead of:
-Exited with status 1
-Then run the audit.
-One other thing: your current code still audits only the first 100 products. That's intentional for this step. Once we confirm this version starts and successfully audits your test store, pagination will be our next technical upgrade so Auditly Pro can audit an entire merchant catalog.
+
+        productsWithShortMetaDes
