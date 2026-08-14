@@ -16,17 +16,14 @@ async function shopifyGraphQL(
     query,
     variables = {}
 ) {
-
     const response = await fetch(
         `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
         {
             method: "POST",
-
             headers: {
                 "Content-Type": "application/json",
                 "X-Shopify-Access-Token": accessToken
             },
-
             body: JSON.stringify({
                 query,
                 variables
@@ -37,15 +34,12 @@ async function shopifyGraphQL(
     const data = await response.json();
 
     if (!response.ok) {
-
         throw new Error(
             `Shopify API returned HTTP ${response.status}`
         );
-
     }
 
     if (data.errors) {
-
         console.error(
             "❌ Shopify GraphQL errors:",
             data.errors
@@ -56,11 +50,9 @@ async function shopifyGraphQL(
                 .map(error => error.message)
                 .join("; ")
         );
-
     }
 
     return data;
-
 }
 
 
@@ -72,16 +64,11 @@ async function getProducts(
     shop,
     accessToken
 ) {
-
     const query = `
         query GetProducts($first: Int!) {
-
             products(first: $first) {
-
                 edges {
-
                     node {
-
                         id
                         title
                         handle
@@ -99,50 +86,32 @@ async function getProducts(
                         }
 
                         images(first: 20) {
-
                             edges {
-
                                 node {
-
                                     url
                                     altText
-
                                 }
-
                             }
-
                         }
 
                         seo {
-
                             title
                             description
-
                         }
 
                         variants(first: 20) {
-
                             edges {
-
                                 node {
-
                                     id
                                     title
                                     price
                                     inventoryQuantity
-
                                 }
-
                             }
-
                         }
-
                     }
-
                 }
-
             }
-
         }
     `;
 
@@ -158,7 +127,6 @@ async function getProducts(
     return data.data.products.edges.map(
         edge => edge.node
     );
-
 }
 
 
@@ -174,25 +142,14 @@ function addFinding(
     message,
     recommendation = null
 ) {
-
     findings.push({
-
         category,
-
         severity,
-
-        productId:
-            product?.id || null,
-
-        productTitle:
-            product?.title || null,
-
+        productId: product?.id || null,
+        productTitle: product?.title || null,
         message,
-
         recommendation
-
     });
-
 }
 
 
@@ -208,85 +165,48 @@ function auditProducts(products) {
         !Array.isArray(products) ||
         products.length === 0
     ) {
-
         return {
-
             score: null,
-
             rating: "Audit Incomplete",
-
             totalProducts: 0,
-
             productsWithIssues: 0,
-
             checksPerformed: 0,
-
             checksPassed: 0,
-
             criticalIssues: 0,
-
             highIssues: 0,
-
             mediumIssues: 0,
-
             lowIssues: 0,
 
             productsWithoutTitles: 0,
-
             productsWithoutDescriptions: 0,
-
             productsWithShortDescriptions: 0,
-
             productsWithoutImages: 0,
-
             productsWithoutAltText: 0,
-
             productsWithoutSEO: 0,
-
             productsWithShortSEOTitles: 0,
-
             productsWithLongSEOTitles: 0,
-
             productsWithShortMetaDescriptions: 0,
-
             productsWithLongMetaDescriptions: 0,
-
             productsWithoutProductType: 0,
-
             productsWithoutVendor: 0,
-
             productsWithoutHandle: 0,
-
             productsWithoutPrice: 0,
-
             productsOutOfStock: 0,
-
             productsWithInvalidInventory: 0,
 
             findings: [
-
                 {
-
                     category: "Products",
-
                     severity: "warning",
-
                     productId: null,
-
                     productTitle: null,
-
                     message:
                         "No products were found in the Shopify store. A meaningful product audit could not be completed.",
-
                     recommendation:
                         "Add products to the store or verify that the Shopify connection has permission to read products."
-
                 }
-
             ]
-
         };
-
     }
 
 
@@ -297,35 +217,20 @@ function auditProducts(products) {
     let productsWithIssues = 0;
 
     let productsWithoutTitles = 0;
-
     let productsWithoutDescriptions = 0;
-
     let productsWithShortDescriptions = 0;
-
     let productsWithoutImages = 0;
-
     let productsWithoutAltText = 0;
-
     let productsWithoutSEO = 0;
-
     let productsWithShortSEOTitles = 0;
-
     let productsWithLongSEOTitles = 0;
-
     let productsWithShortMetaDescriptions = 0;
-
     let productsWithLongMetaDescriptions = 0;
-
     let productsWithoutProductType = 0;
-
     let productsWithoutVendor = 0;
-
     let productsWithoutHandle = 0;
-
     let productsWithoutPrice = 0;
-
     let productsOutOfStock = 0;
-
     let productsWithInvalidInventory = 0;
 
 
@@ -338,17 +243,15 @@ function auditProducts(products) {
         let productHasIssues = false;
 
 
-        // --------------------------------------
-        // Title
-        // --------------------------------------
+        // ======================================
+        // Product Title
+        // ======================================
 
         if (
             !product.title ||
             product.title.trim().length === 0
         ) {
-
             productsWithoutTitles++;
-
             productHasIssues = true;
 
             addFinding(
@@ -359,24 +262,21 @@ function auditProducts(products) {
                 "Product is missing a title.",
                 "Add a clear, descriptive product title that accurately identifies the product."
             );
-
         }
 
 
-        // --------------------------------------
-        // Description
-        // --------------------------------------
+        // ======================================
+        // Product Description
+        // ======================================
 
         const description =
             product.description
                 ? product.description.trim()
                 : "";
 
-
         if (!description) {
 
             productsWithoutDescriptions++;
-
             productHasIssues = true;
 
             addFinding(
@@ -393,7 +293,6 @@ function auditProducts(products) {
         ) {
 
             productsWithShortDescriptions++;
-
             productHasIssues = true;
 
             addFinding(
@@ -404,24 +303,21 @@ function auditProducts(products) {
                 "Product description is very short.",
                 "Expand the description with useful product details, benefits, specifications, and use cases."
             );
-
         }
 
 
-        // --------------------------------------
-        // Images
-        // --------------------------------------
+        // ======================================
+        // Product Images
+        // ======================================
 
         const images =
             product.images?.edges || [];
-
 
         if (
             images.length === 0
         ) {
 
             productsWithoutImages++;
-
             productHasIssues = true;
 
             addFinding(
@@ -442,13 +338,11 @@ function auditProducts(products) {
                         image.node.altText.trim() === ""
                 );
 
-
             if (
                 missingAltText.length > 0
             ) {
 
                 productsWithoutAltText++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -459,25 +353,21 @@ function auditProducts(products) {
                     `${missingAltText.length} product image(s) are missing alt text.`,
                     "Add descriptive alt text to product images for accessibility and image SEO."
                 );
-
             }
-
         }
 
 
-        // --------------------------------------
+        // ======================================
         // SEO Metadata
-        // --------------------------------------
+        // ======================================
 
         const seo =
             product.seo || {};
-
 
         const seoTitle =
             seo.title
                 ? seo.title.trim()
                 : "";
-
 
         const seoDescription =
             seo.description
@@ -491,7 +381,6 @@ function auditProducts(products) {
         ) {
 
             productsWithoutSEO++;
-
             productHasIssues = true;
 
             addFinding(
@@ -505,9 +394,9 @@ function auditProducts(products) {
 
         } else {
 
-            // ----------------------------------
+            // ==================================
             // SEO Title Length
-            // ----------------------------------
+            // ==================================
 
             if (
                 seoTitle &&
@@ -515,7 +404,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithShortSEOTitles++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -526,7 +414,6 @@ function auditProducts(products) {
                     "SEO title is unusually short.",
                     "Consider expanding the SEO title with useful product-specific keywords while keeping it natural."
                 );
-
             }
 
 
@@ -536,7 +423,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithLongSEOTitles++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -547,13 +433,12 @@ function auditProducts(products) {
                     "SEO title is unusually long.",
                     "Shorten the SEO title so the most important information appears first."
                 );
-
             }
 
 
-            // ----------------------------------
+            // ==================================
             // Meta Description Length
-            // ----------------------------------
+            // ==================================
 
             if (
                 seoDescription &&
@@ -561,7 +446,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithShortMetaDescriptions++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -572,7 +456,6 @@ function auditProducts(products) {
                     "Meta description is unusually short.",
                     "Expand the meta description with useful information about the product."
                 );
-
             }
 
 
@@ -582,7 +465,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithLongMetaDescriptions++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -593,15 +475,13 @@ function auditProducts(products) {
                     "Meta description is unusually long.",
                     "Shorten the meta description so the most important information appears first."
                 );
-
             }
-
         }
 
 
-        // --------------------------------------
-        // Handle / URL
-        // --------------------------------------
+        // ======================================
+        // Product URL Handle
+        // ======================================
 
         if (
             !product.handle ||
@@ -609,7 +489,6 @@ function auditProducts(products) {
         ) {
 
             productsWithoutHandle++;
-
             productHasIssues = true;
 
             addFinding(
@@ -620,13 +499,12 @@ function auditProducts(products) {
                 "Product URL handle is missing.",
                 "Create a clean, descriptive URL handle for the product."
             );
-
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Product Type
-        // --------------------------------------
+        // ======================================
 
         if (
             !product.productType ||
@@ -634,7 +512,6 @@ function auditProducts(products) {
         ) {
 
             productsWithoutProductType++;
-
             productHasIssues = true;
 
             addFinding(
@@ -645,13 +522,12 @@ function auditProducts(products) {
                 "Product type is missing.",
                 "Assign an appropriate product type to improve store organization and product management."
             );
-
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Vendor
-        // --------------------------------------
+        // ======================================
 
         if (
             !product.vendor ||
@@ -659,7 +535,6 @@ function auditProducts(products) {
         ) {
 
             productsWithoutVendor++;
-
             productHasIssues = true;
 
             addFinding(
@@ -670,24 +545,21 @@ function auditProducts(products) {
                 "Product vendor is missing.",
                 "Add a vendor or brand name when appropriate."
             );
-
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Variants / Pricing
-        // --------------------------------------
+        // ======================================
 
         const variants =
             product.variants?.edges || [];
-
 
         if (
             variants.length === 0
         ) {
 
             productsWithoutPrice++;
-
             productHasIssues = true;
 
             addFinding(
@@ -717,11 +589,8 @@ function auditProducts(products) {
                     Number.isFinite(price) &&
                     price > 0
                 ) {
-
                     productHasValidPrice = true;
-
                 }
-
             }
 
 
@@ -730,7 +599,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithoutPrice++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -741,15 +609,13 @@ function auditProducts(products) {
                     "Product does not appear to have a valid positive price.",
                     "Verify that at least one active product variant has a valid price."
                 );
-
             }
-
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Inventory
-        // --------------------------------------
+        // ======================================
 
         if (
             typeof product.totalInventory === "number"
@@ -760,7 +626,6 @@ function auditProducts(products) {
             ) {
 
                 productsWithInvalidInventory++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -771,7 +636,6 @@ function auditProducts(products) {
                     "Product inventory appears to be invalid.",
                     "Review the product's inventory levels and inventory tracking settings."
                 );
-
             }
 
 
@@ -780,7 +644,6 @@ function auditProducts(products) {
             ) {
 
                 productsOutOfStock++;
-
                 productHasIssues = true;
 
                 addFinding(
@@ -791,36 +654,30 @@ function auditProducts(products) {
                     "Product currently has zero inventory.",
                     "Review inventory availability and determine whether the product should remain available for sale."
                 );
-
             }
-
         }
 
 
-        // --------------------------------------
-        // Track product issue status
-        // --------------------------------------
+        // ======================================
+        // Track Product Issue
+        // ======================================
 
         if (
             productHasIssues
         ) {
-
             productsWithIssues++;
-
         }
-
     }
 
 
     // ==========================================
-    // Determine Severity Counts
+    // Severity Counts
     // ==========================================
 
     let criticalIssues = 0;
     let highIssues = 0;
     let mediumIssues = 0;
     let lowIssues = 0;
-
 
     for (
         const finding of findings
@@ -844,9 +701,7 @@ function auditProducts(products) {
 
             default:
                 lowIssues++;
-
         }
-
     }
 
 
@@ -874,7 +729,6 @@ function auditProducts(products) {
             lowIssues * 1
         );
 
-
     let points =
         100 -
         (
@@ -885,12 +739,8 @@ function auditProducts(products) {
             )
         );
 
-
     points =
-        Math.round(
-            points
-        );
-
+        Math.round(points);
 
     points =
         Math.max(
@@ -901,13 +751,16 @@ function auditProducts(products) {
             )
         );
 
-
     const checksPassed =
         Math.max(
             0,
             totalChecks - findings.length
         );
 
+
+    // ==========================================
+    // Return Product Audit
+    // ==========================================
 
     return {
 
@@ -948,4 +801,6 @@ function auditProducts(products) {
 
         productsWithShortSEOTitles,
 
-        productsW
+        productsWithLongSEOTitles,
+
+        productsWithShortMetaDes
