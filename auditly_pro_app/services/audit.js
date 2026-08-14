@@ -1,3 +1,8 @@
+I found it. The file you pasted is literally cut off at:
+productsW
+So Render's Unexpected end of input at line 952 is exactly what we'd expect. Nothing is wrong with your Shopify connection or Supabase.
+Do not change anything else. Replace the incomplete audit.js with the corrected complete version below.
+Writing
 // ==========================================
 // Auditly Pro v3
 // Shopify Store Audit Engine
@@ -805,6 +810,460 @@ function auditProducts(products) {
 
         productsWithShortMetaDescriptions,
 
+        productsWithLongMetaDescriptions,
+
+        productsWithoutProductType,
+
+        productsWithoutVendor,
+
+        productsWithoutHandle,
+
+        productsWithoutPrice,
+
+        productsOutOfStock,
+
+        productsWithInvalidInventory,
+
+        findings
+    };
+}
+
+
+// ==========================================
+// Rating
+// ==========================================
+
+function getRating(score) {
+
+    if (
+        score === null ||
+        score === undefined
+    ) {
+        return "Audit Incomplete";
+    }
+
+    if (
+        score >= 90
+    ) {
+        return "Excellent";
+    }
+
+    if (
+        score >= 80
+    ) {
+        return "Good";
+    }
+
+    if (
+        score >= 70
+    ) {
+        return "Needs Improvement";
+    }
+
+    if (
+        score >= 50
+    ) {
+        return "Poor";
+    }
+
+    return "Critical";
+}
+
+
+// ==========================================
+// Build Recommendations
+// ==========================================
+
+function buildRecommendations(
+    productAudit
+) {
+
+    const recommendations = [];
+
+
+    // ==========================================
+    // No Products
+    // ==========================================
+
+    if (
+        productAudit.totalProducts === 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "Store Setup",
+
+            recommendation:
+                "Add products to your Shopify store or verify that your store is active and accessible through the Shopify Admin API."
+
+        });
+
+        return recommendations;
+    }
+
+
+    // ==========================================
+    // Critical Issues
+    // ==========================================
+
+    if (
+        productAudit.criticalIssues > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "Critical",
+
+            category: "Store Health",
+
+            recommendation:
+                "Resolve critical audit issues first because they may have a significant effect on store functionality, visibility, or customer experience."
+
+        });
+    }
+
+
+    // ==========================================
+    // SEO
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutSEO > 0 ||
+        productAudit.productsWithShortSEOTitles > 0 ||
+        productAudit.productsWithLongSEOTitles > 0 ||
+        productAudit.productsWithShortMetaDescriptions > 0 ||
+        productAudit.productsWithLongMetaDescriptions > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "SEO",
+
+            recommendation:
+                "Review product SEO titles and meta descriptions. Make them descriptive, relevant, and appropriately sized for search visibility."
+
+        });
+    }
+
+
+    // ==========================================
+    // Content
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutDescriptions > 0 ||
+        productAudit.productsWithShortDescriptions > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "Content",
+
+            recommendation:
+                "Improve product descriptions by clearly explaining features, benefits, specifications, and use cases."
+
+        });
+    }
+
+
+    // ==========================================
+    // Images
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutImages > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "Store Optimization",
+
+            recommendation:
+                "Add high-quality product images to products that currently have no images."
+
+        });
+    }
+
+
+    // ==========================================
+    // Accessibility
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutAltText > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "Medium",
+
+            category: "Accessibility",
+
+            recommendation:
+                "Add descriptive alt text to product images to improve accessibility and image SEO."
+
+        });
+    }
+
+
+    // ==========================================
+    // Product Organization
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutProductType > 0 ||
+        productAudit.productsWithoutVendor > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "Medium",
+
+            category: "Product Organization",
+
+            recommendation:
+                "Improve product organization by adding appropriate product types and vendor information."
+
+        });
+    }
+
+
+    // ==========================================
+    // Pricing
+    // ==========================================
+
+    if (
+        productAudit.productsWithoutPrice > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "High",
+
+            category: "Pricing",
+
+            recommendation:
+                "Review products with missing or invalid pricing and verify that active variants have valid prices."
+
+        });
+    }
+
+
+    // ==========================================
+    // Inventory
+    // ==========================================
+
+    if (
+        productAudit.productsOutOfStock > 0
+    ) {
+
+        recommendations.push({
+
+            priority: "Medium",
+
+            category: "Inventory",
+
+            recommendation:
+                "Review products with zero inventory and determine whether they should be restocked, hidden, or handled differently."
+
+        });
+    }
+
+
+    // ==========================================
+    // No Major Issues
+    // ==========================================
+
+    if (
+        recommendations.length === 0
+    ) {
+
+        recommendations.push({
+
+            priority: "Low",
+
+            category: "Optimization",
+
+            recommendation:
+                "No major product issues were detected. Continue monitoring your store and look for additional opportunities to improve SEO, content, accessibility, and conversions."
+
+        });
+    }
+
+
+    return recommendations;
+}
+
+
+// ==========================================
+// Run Complete Audit
+// ==========================================
+
+async function runAudit(
+    shop,
+    accessToken
+) {
+
+    console.log(
+        "🚀 STARTING STORE AUDIT:",
+        shop
+    );
+
+
+    // ==========================================
+    // Retrieve Products
+    // ==========================================
+
+    const products =
+        await getProducts(
+            shop,
+            accessToken
+        );
+
+    console.log(
+        `📦 Retrieved ${products.length} products`
+    );
+
+
+    // ==========================================
+    // Audit Products
+    // ==========================================
+
+    const productAudit =
+        auditProducts(
+            products
+        );
+
+
+    // ==========================================
+    // Recommendations
+    // ==========================================
+
+    const recommendations =
+        buildRecommendations(
+            productAudit
+        );
+
+
+    // ==========================================
+    // Overall Score
+    // ==========================================
+
+    const score =
+        productAudit.score;
+
+    const rating =
+        productAudit.rating;
+
+
+    // ==========================================
+    // Completion Logging
+    // ==========================================
+
+    if (
+        score === null
+    ) {
+
+        console.log(
+            "⚠️ STORE AUDIT INCOMPLETE: No products available for analysis."
+        );
+
+    } else {
+
+        console.log(
+            `✅ STORE AUDIT COMPLETE: ${score}/100`
+        );
+    }
+
+
+    // ==========================================
+    // Final Result
+    // ==========================================
+
+    return {
+
+        success: true,
+
+        shop,
+
+        auditDate:
+            new Date().toISOString(),
+
+        score,
+
+        rating,
+
+        auditStatus:
+            score === null
+                ? "incomplete"
+                : "complete",
+
+        summary: {
+
+            totalProducts:
+                productAudit.totalProducts,
+
+            productsWithIssues:
+                productAudit.productsWithIssues,
+
+            checksPerformed:
+                productAudit.checksPerformed,
+
+            checksPassed:
+                productAudit.checksPassed,
+
+            criticalIssues:
+                productAudit.criticalIssues,
+
+            highIssues:
+                productAudit.highIssues,
+
+            mediumIssues:
+                productAudit.mediumIssues,
+
+            lowIssues:
+                productAudit.lowIssues
+        },
+
+        categories: {
+
+            products: {
+
+                score:
+                    productAudit.score,
+
+                rating:
+                    productAudit.rating,
+
+                totalProducts:
+                    productAudit.totalProducts,
+
+                productsWithIssues:
+                    productAudit.productsWithIssues
+            },
+
+            seo: {
+
+                productsWithoutSEO:
+                    productAudit.productsWithoutSEO,
+
+                shortSEOTitles:
+                    productAudit.productsWithShortSEOTitles,
+
+                longSEOTitles:
+                    productAudit.productsWithLongSEOTitles,
+
+                shortMetaDescriptions:
+                    productAudit.productsWithShortMetaDescriptions,
+
                 longMetaDescriptions:
                     productAudit.productsWithLongMetaDescriptions
             },
@@ -875,3 +1334,19 @@ module.exports = {
     buildRecommendations
 
 };
+Now do exactly this
+Open services/audit.js in GitHub.
+Select all of the existing contents.
+Delete them.
+Paste the complete file above.
+Commit the change to your main branch.
+Let Render deploy.
+Do not click Run Store Audit until Render says the deployment is live.
+What we want to see in Render
+The previous error:
+SyntaxError: Unexpected end of input
+should be completely gone.
+You should again see your server start normally instead of:
+Exited with status 1
+Then run the audit.
+One other thing: your current code still audits only the first 100 products. That's intentional for this step. Once we confirm this version starts and successfully audits your test store, pagination will be our next technical upgrade so Auditly Pro can audit an entire merchant catalog.
