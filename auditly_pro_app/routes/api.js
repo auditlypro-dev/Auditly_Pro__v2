@@ -1,22 +1,22 @@
-// ==========================================
-// Auditly Pro v2
-// Shopify + Supabase API Routes
-// ==========================================
-
 const express = require("express");
-const router = express.Router();
-
-const { createClient } = require("@supabase/supabase-js");
 
 console.log("🔥 USING FINAL SUPABASE API FILE");
 
+const router = express.Router();
 
-// ==========================================
+const { createClient } =
+    require("@supabase/supabase-js");
+
+const {
+    runAudit
+} = require("../services/audit");
+
+
+// ==================================================
 // ENVIRONMENT VARIABLES
-// ==========================================
+// ==================================================
 
-const SHOPIFY_API_VERSION =
-    process.env.SHOPIFY_API_VERSION || "2026-07";
+const SHOPIFY_API_VERSION = "2026-07";
 
 const SHOPIFY_API_KEY =
     process.env.SHOPIFY_API_KEY;
@@ -27,226 +27,258 @@ const SHOPIFY_API_SECRET =
 const SUPABASE_URL =
     process.env.SUPABASE_URL;
 
-const SUPABASE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_KEY;
+const SUPABASE_SERVICE_ROLE_KEY =
+    process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 
-// ==========================================
-// ENVIRONMENT CHECK
-// ==========================================
+// ==================================================
+// SUPABASE SERVER CLIENT
+// ==================================================
 
-if (!SUPABASE_URL) {
-    console.error("❌ SUPABASE_URL is missing");
-}
-
-if (!SUPABASE_KEY) {
-    console.error("❌ SUPABASE service key is missing");
-}
-
-if (!SHOPIFY_API_KEY) {
-    console.error("❌ SHOPIFY_API_KEY is missing");
-}
-
-if (!SHOPIFY_API_SECRET) {
-    console.error("❌ SHOPIFY_API_SECRET is missing");
-}
+const supabase =
+    createClient(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY
+    );
 
 
-// ==========================================
-// SUPABASE CLIENT
-// ==========================================
+// ==================================================
+// REFRESH TOKEN LOCK
+// ==================================================
 
-const supabase = createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+const refreshLocks =
+    new Map();
 
 
-// ==========================================
-// TOKEN REFRESH LOCKS
-// ==========================================
-
-const refreshLocks = new Map();
-
-
-// ==========================================
-// FIND SHOP IN SUPABASE
-// ==========================================
+// ==================================================
+// FIND SHOP
+// ==================================================
 
 async function getShopRecord(shop) {
 
-    const { data, error } = await supabase
+    const {
+        data,
+        error
+    } = await supabase
         .from("shops")
         .select("*")
         .eq("shop", shop)
         .limit(1);
 
-    if (error) {
 
-        console.error(
-            "❌ SUPABASE SHOP LOOKUP ERROR:",
-            error
-        );
+    if (error) {
 
         throw new Error(
             `Supabase shop lookup failed: ${error.message}`
         );
+
     }
 
-    if (!data || data.length === 0) {
+
+    if (
+        !data ||
+        data.length === 0
+    ) {
+
         return null;
+
     }
+
 
     return data[0];
+
 }
 
 
-// ==========================================
-// REFRESH SHOPIFY EXPIRING TOKEN
-// ==========================================
+// ==================================================
+// REFRESH SHOPIFY TOKEN
+// ==================================================
 
 async function refreshShopifyToken(
     shop,
     shopRecord
 ) {
 
-    // Prevent multiple simultaneous refreshes.
-    if (refreshLocks.has(shop)) {
+    if (
+        refreshLocks.has(shop)
+    ) {
 
         return await refreshLocks.get(shop);
 
     }
 
 
-    const refreshPromise = (async () => {
+    const refreshPromise =
+        (async () => {
 
-        console.log(
-            "🔄 Refreshing Shopify token for:",
-            shop
-        );
-
-
-        if (!shopRecord.refresh_token) {
-
-            throw new Error(
-                "No Shopify refresh token is stored for this shop."
+            console.log(
+                "🔄 Refreshing Shopify access token for:",
+                shop
             );
 
-        }
 
+            if (
+                !shopRecord.refresh_token
+            ) {
 
-        const response = await fetch(
+                throw new Error(
+                    "No Shopify refresh token is stored for this shop."
+                );
 
-            `https://${shop}/admin/oauth/access_token`,
-
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-
-                    "Accept":
-                        "application/json"
-                },
-
-                body: new URLSearchParams({
-
-                    client_id:
-                        SHOPIFY_API_KEY,
-
-                    client_secret:
-                        SHOPIFY_API_SECRET,
-
-                    grant_type:
-                        "refresh_token",
-
-                    refresh_token:
-                        shopRecord.refresh_token
-
-                }).toString()
             }
 
-        );
+
+            const response =
+                await fetch(
+                    `https://${shop}/admin/oauth/access_token`,
+                    {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type":
+                                "application/x-www-form-urlencoded",
+
+                            "Accept":
+                                "application/json"
+
+                        },
+
+                        body:
+                            new URLSearchParams({
+
+                                client_id:
+                                    SHOPIFY_API_KEY,
+
+                                client_secret:
+                                    SHOPIFY_API_SECRET,
+
+                                grant_type:
+                                    "refresh_token",
+
+                                refresh_token:
+                                    shopRecord.refresh_token
+
+                            }).toString()
+
+                    }
+                );
 
 
-        const tokenData =
-            await response.json();
+            const tokenData =
+                await response.json();
 
 
-        if (!response.ok) {
+            if (
+                !response.ok
+            ) {
 
-            console.error(
-                "❌ SHOPIFY TOKEN REFRESH FAILED:",
-                tokenData
-            );
+                console.error(
+                    "❌ Shopify token refresh failed:",
+                    tokenData
+                );
 
-            throw new Error(
-                tokenData.error_description ||
-                tokenData.error ||
-                "Shopify token refresh failed"
-            );
+                throw new Error(
+                    tokenData.error_description ||
+                    tokenData.error ||
+                    "Shopify token refresh failed"
+                );
 
-        }
-
-
-        if (!tokenData.access_token) {
-
-            throw new Error(
-                "Shopify did not return a new access token."
-            );
-
-        }
+            }
 
 
-        if (!tokenData.refresh_token) {
+            if (
+                !tokenData.access_token
+            ) {
 
-            throw new Error(
-                "Shopify did not return a new refresh token."
-            );
+                throw new Error(
+                    "Shopify did not return a new access token."
+                );
 
-        }
-
-
-        // --------------------------------------
-        // Calculate expiration times
-        // --------------------------------------
-
-        const now =
-            Date.now();
+            }
 
 
-        const expiresAt =
-            new Date(
-                now +
-                (tokenData.expires_in * 1000)
-            ).toISOString();
+            if (
+                !tokenData.refresh_token
+            ) {
+
+                throw new Error(
+                    "Shopify did not return a new refresh token."
+                );
+
+            }
 
 
-        const refreshTokenExpiresAt =
-            tokenData.refresh_token_expires_in
+            const now =
+                Date.now();
 
-                ? new Date(
+
+            const expiresAt =
+                new Date(
                     now +
                     (
-                        tokenData.refresh_token_expires_in
-                        * 1000
+                        tokenData.expires_in *
+                        1000
                     )
-                ).toISOString()
-
-                : shopRecord.refresh_token_expires_at;
+                ).toISOString();
 
 
-        // --------------------------------------
-        // Save new tokens
-        // --------------------------------------
+            const refreshTokenExpiresAt =
+                tokenData.refresh_token_expires_in
+                    ? new Date(
+                        now +
+                        (
+                            tokenData.refresh_token_expires_in *
+                            1000
+                        )
+                    ).toISOString()
+                    : shopRecord.refresh_token_expires_at;
 
-        const { error } = await supabase
 
-            .from("shops")
+            const {
+                error
+            } = await supabase
+                .from("shops")
+                .update({
 
-            .update({
+                    access_token:
+                        tokenData.access_token,
+
+                    refresh_token:
+                        tokenData.refresh_token,
+
+                    expires_at:
+                        expiresAt,
+
+                    refresh_token_expires_at:
+                        refreshTokenExpiresAt,
+
+                    updated_at:
+                        new Date().toISOString()
+
+                })
+                .eq(
+                    "shop",
+                    shop
+                );
+
+
+            if (error) {
+
+                throw new Error(
+                    `Unable to save refreshed Shopify tokens: ${error.message}`
+                );
+
+            }
+
+
+            console.log(
+                "✅ Shopify token refreshed successfully"
+            );
+
+
+            return {
 
                 access_token:
                     tokenData.access_token,
@@ -258,52 +290,11 @@ async function refreshShopifyToken(
                     expiresAt,
 
                 refresh_token_expires_at:
-                    refreshTokenExpiresAt,
+                    refreshTokenExpiresAt
 
-                updated_at:
-                    new Date().toISOString()
+            };
 
-            })
-
-            .eq("shop", shop);
-
-
-        if (error) {
-
-            console.error(
-                "❌ FAILED TO SAVE REFRESHED TOKEN:",
-                error
-            );
-
-            throw new Error(
-                `Unable to save refreshed Shopify tokens: ${error.message}`
-            );
-
-        }
-
-
-        console.log(
-            "✅ Shopify token refreshed successfully"
-        );
-
-
-        return {
-
-            access_token:
-                tokenData.access_token,
-
-            refresh_token:
-                tokenData.refresh_token,
-
-            expires_at:
-                expiresAt,
-
-            refresh_token_expires_at:
-                refreshTokenExpiresAt
-
-        };
-
-    })();
+        })();
 
 
     refreshLocks.set(
@@ -325,16 +316,18 @@ async function refreshShopifyToken(
 }
 
 
-// ==========================================
+// ==================================================
 // GET VALID SHOPIFY ACCESS TOKEN
-// ==========================================
+// ==================================================
 
 async function getValidAccessToken(
     shop,
     shopRecord
 ) {
 
-    if (!shopRecord.access_token) {
+    if (
+        !shopRecord.access_token
+    ) {
 
         throw new Error(
             "No Shopify access token is stored for this shop."
@@ -343,14 +336,12 @@ async function getValidAccessToken(
     }
 
 
-    // --------------------------------------
-    // Expiring-token architecture
-    // --------------------------------------
-
-    if (!shopRecord.expires_at) {
+    if (
+        !shopRecord.expires_at
+    ) {
 
         throw new Error(
-            "This shop does not have an expiring Shopify token. Reinstall the app to obtain a current expiring offline token."
+            "This shop does not have an expiring Shopify token. Reinstall the app."
         );
 
     }
@@ -362,27 +353,21 @@ async function getValidAccessToken(
         ).getTime();
 
 
-    if (Number.isNaN(expirationTime)) {
-
-        throw new Error(
-            "The Shopify token expiration date is invalid."
-        );
-
-    }
-
-
     const currentTime =
         Date.now();
 
 
-    // Refresh five minutes before expiration.
+    // Refresh 5 minutes before expiration.
     const refreshBuffer =
         5 * 60 * 1000;
 
 
     if (
         currentTime <
-        (expirationTime - refreshBuffer)
+        (
+            expirationTime -
+            refreshBuffer
+        )
     ) {
 
         return shopRecord.access_token;
@@ -407,9 +392,9 @@ async function getValidAccessToken(
 }
 
 
-// ==========================================
+// ==================================================
 // SHOPIFY GRAPHQL REQUEST
-// ==========================================
+// ==================================================
 
 async function shopifyGraphQL(
     shop,
@@ -420,10 +405,9 @@ async function shopifyGraphQL(
 
     const response =
         await fetch(
-
             `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
-
             {
+
                 method: "POST",
 
                 headers: {
@@ -436,82 +420,51 @@ async function shopifyGraphQL(
 
                 },
 
-                body: JSON.stringify({
+                body:
+                    JSON.stringify({
 
-                    query,
+                        query,
 
-                    variables
+                        variables
 
-                })
+                    })
 
             }
-
         );
 
 
-    let data;
+    const data =
+        await response.json();
 
 
-    try {
-
-        data =
-            await response.json();
-
-    } catch {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
-            "Shopify returned an invalid response."
+            `Shopify GraphQL HTTP error: ${response.status}`
         );
 
     }
 
 
-    if (!response.ok) {
-
-        const error =
-            new Error(
-                `Shopify GraphQL HTTP error: ${response.status}`
-            );
-
-        error.status =
-            response.status;
-
-        error.details =
-            data;
-
-        throw error;
-
-    }
-
-
-    if (data.errors) {
+    if (
+        data.errors
+    ) {
 
         console.error(
-            "❌ SHOPIFY GRAPHQL ERRORS:",
+            "❌ Shopify GraphQL errors:",
             data.errors
         );
 
-
-        const error =
-            new Error(
-
-                data.errors
-                    .map(
-                        item => item.message
-                    )
-                    .join("; ")
-
-            );
-
-
-        error.status =
-            200;
-
-        error.details =
-            data.errors;
-
-
-        throw error;
+        throw new Error(
+            data.errors
+                .map(
+                    error =>
+                        error.message
+                )
+                .join("; ")
+        );
 
     }
 
@@ -521,9 +474,10 @@ async function shopifyGraphQL(
 }
 
 
-// ==========================================
-// GET STORE INFORMATION
-// ==========================================
+// ==================================================
+// STORE INFORMATION
+// GET /api/store?shop=...
+// ==================================================
 
 router.get(
     "/store",
@@ -541,8 +495,6 @@ router.get(
                     .status(400)
                     .json({
 
-                        success: false,
-
                         error:
                             "Missing shop parameter"
 
@@ -557,12 +509,10 @@ router.get(
             );
 
 
-            // ----------------------------------
-            // Get store from Supabase
-            // ----------------------------------
-
             const shopRecord =
-                await getShopRecord(shop);
+                await getShopRecord(
+                    shop
+                );
 
 
             if (!shopRecord) {
@@ -571,10 +521,8 @@ router.get(
                     .status(404)
                     .json({
 
-                        success: false,
-
                         error:
-                            "Shop not found in Supabase",
+                            "Shop not found",
 
                         shop
 
@@ -588,10 +536,6 @@ router.get(
             );
 
 
-            // ----------------------------------
-            // Get valid access token
-            // ----------------------------------
-
             const accessToken =
                 await getValidAccessToken(
                     shop,
@@ -604,10 +548,6 @@ router.get(
             );
 
 
-            // ----------------------------------
-            // Shopify GraphQL query
-            // ----------------------------------
-
             const query = `
 
                 query {
@@ -615,17 +555,13 @@ router.get(
                     shop {
 
                         id
-
                         name
-
                         email
-
                         myshopifyDomain
 
                         primaryDomain {
 
                             host
-
                             url
 
                         }
@@ -643,13 +579,9 @@ router.get(
 
             const shopifyData =
                 await shopifyGraphQL(
-
                     shop,
-
                     accessToken,
-
                     query
-
                 );
 
 
@@ -674,15 +606,13 @@ router.get(
         } catch (error) {
 
             console.error(
-                "❌ /api/store ERROR:",
-                error
+                "❌ Shopify API Error:",
+                error.message
             );
 
 
             res
-                .status(
-                    error.status || 500
-                )
+                .status(500)
                 .json({
 
                     success: false,
@@ -701,18 +631,20 @@ router.get(
 );
 
 
-// ==========================================
-// GET SHOPIFY PRODUCTS
-// ==========================================
+// ==================================================
+// RUN STORE AUDIT
+// POST /api/audit?shop=...
+// ==================================================
 
-router.get(
-    "/products",
+router.post(
+    "/audit",
     async (req, res) => {
 
         try {
 
             const shop =
-                req.query.shop;
+                req.query.shop ||
+                req.body?.shop;
 
 
             if (!shop) {
@@ -731,8 +663,20 @@ router.get(
             }
 
 
+            console.log(
+                "🔎 Starting audit for:",
+                shop
+            );
+
+
+            // ------------------------------------------
+            // Find shop
+            // ------------------------------------------
+
             const shopRecord =
-                await getShopRecord(shop);
+                await getShopRecord(
+                    shop
+                );
 
 
             if (!shopRecord) {
@@ -744,12 +688,18 @@ router.get(
                         success: false,
 
                         error:
-                            "Shop not found in Supabase"
+                            "Shop not found",
+
+                        shop
 
                     });
 
             }
 
+
+            // ------------------------------------------
+            // Get valid token
+            // ------------------------------------------
 
             const accessToken =
                 await getValidAccessToken(
@@ -758,79 +708,49 @@ router.get(
                 );
 
 
-            const query = `
-
-                query {
-
-                    products(first: 50) {
-
-                        nodes {
-
-                            id
-
-                            title
-
-                            handle
-
-                            status
-
-                            description
-
-                            totalInventory
-
-                            onlineStoreUrl
-
-                        }
-
-                    }
-
-                }
-
-            `;
+            console.log(
+                "🔑 Valid token ready for audit"
+            );
 
 
-            const data =
-                await shopifyGraphQL(
+            // ------------------------------------------
+            // Run audit engine
+            // ------------------------------------------
 
+            const audit =
+                await runAudit(
                     shop,
-
-                    accessToken,
-
-                    query
-
+                    accessToken
                 );
 
 
-            res.json({
+            console.log(
+                "🎉 AUDIT COMPLETED:",
+                shop
+            );
 
-                success: true,
 
-                shop,
-
-                products:
-                    data.data.products.nodes
-
-            });
+            res.json(
+                audit
+            );
 
 
         } catch (error) {
 
             console.error(
-                "❌ /api/products ERROR:",
+                "❌ AUDIT ERROR:",
                 error
             );
 
 
             res
-                .status(
-                    error.status || 500
-                )
+                .status(500)
                 .json({
 
                     success: false,
 
                     error:
-                        "Unable to retrieve Shopify products",
+                        "Unable to complete store audit",
 
                     details:
                         error.message
@@ -843,147 +763,10 @@ router.get(
 );
 
 
-// ==========================================
-// GET SHOPIFY THEMES
-// ==========================================
-
-router.get(
-    "/themes",
-    async (req, res) => {
-
-        try {
-
-            const shop =
-                req.query.shop;
-
-
-            if (!shop) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success: false,
-
-                        error:
-                            "Missing shop parameter"
-
-                    });
-
-            }
-
-
-            const shopRecord =
-                await getShopRecord(shop);
-
-
-            if (!shopRecord) {
-
-                return res
-                    .status(404)
-                    .json({
-
-                        success: false,
-
-                        error:
-                            "Shop not found in Supabase"
-
-                    });
-
-            }
-
-
-            const accessToken =
-                await getValidAccessToken(
-                    shop,
-                    shopRecord
-                );
-
-
-            const query = `
-
-                query {
-
-                    themes(first: 20) {
-
-                        nodes {
-
-                            id
-
-                            name
-
-                            role
-
-                            createdAt
-
-                            updatedAt
-
-                        }
-
-                    }
-
-                }
-
-            `;
-
-
-            const data =
-                await shopifyGraphQL(
-
-                    shop,
-
-                    accessToken,
-
-                    query
-
-                );
-
-
-            res.json({
-
-                success: true,
-
-                shop,
-
-                themes:
-                    data.data.themes.nodes
-
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "❌ /api/themes ERROR:",
-                error
-            );
-
-
-            res
-                .status(
-                    error.status || 500
-                )
-                .json({
-
-                    success: false,
-
-                    error:
-                        "Unable to retrieve Shopify themes",
-
-                    details:
-                        error.message
-
-                });
-
-        }
-
-    }
-);
-
-
-// ==========================================
-// DEBUG ROUTE
-// ==========================================
+// ==================================================
+// DEBUG
+// GET /api/debug
+// ==================================================
 
 router.get(
     "/debug",
@@ -995,9 +778,7 @@ router.get(
                 data,
                 error
             } = await supabase
-
                 .from("shops")
-
                 .select(
                     "shop, installed_at, updated_at, expires_at, refresh_token_expires_at"
                 );
@@ -1026,8 +807,7 @@ router.get(
 
                 success: true,
 
-                shops:
-                    data || []
+                shops: data
 
             });
 
@@ -1035,7 +815,7 @@ router.get(
         } catch (error) {
 
             console.error(
-                "❌ /api/debug ERROR:",
+                "❌ Debug error:",
                 error
             );
 
@@ -1060,9 +840,10 @@ router.get(
 );
 
 
-// ==========================================
-// API TEST ROUTE
-// ==========================================
+// ==================================================
+// API TEST
+// GET /api/test
+// ==================================================
 
 router.get(
     "/test",
@@ -1087,8 +868,8 @@ router.get(
 );
 
 
-// ==========================================
+// ==================================================
 // EXPORT
-// ==========================================
+// ==================================================
 
 module.exports = router;
