@@ -4,11 +4,20 @@
 <head>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Auditly Pro v2 Dashboard</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>
+        Auditly Pro v2 Dashboard
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="/css/styles.css"
+    >
 
 </head>
 
@@ -17,7 +26,9 @@
 
 <header>
 
-    <h1>🚀 Auditly Pro v2</h1>
+    <h1>
+        🚀 Auditly Pro v2
+    </h1>
 
     <p>
         AI-Powered Shopify Compliance & Optimization Platform
@@ -29,11 +40,15 @@
 <main>
 
 
-    <!-- Server Status -->
+    <!-- ==========================================
+         SYSTEM STATUS
+    =========================================== -->
 
     <section class="card">
 
-        <h2>System Status</h2>
+        <h2>
+            System Status
+        </h2>
 
         <div id="status">
 
@@ -45,11 +60,15 @@
 
 
 
-    <!-- Shopify Connection -->
+    <!-- ==========================================
+         SHOPIFY CONNECTION
+    =========================================== -->
 
     <section class="card">
 
-        <h2>Shopify Store Connection</h2>
+        <h2>
+            Shopify Store Connection
+        </h2>
 
 
         <div id="shopStatus">
@@ -62,24 +81,100 @@
         <br>
 
 
-        <a id="connectShop"
-           href="/auth/install?shop=auditly-pro-app.myshopify.com">
+        <a
+            id="connectShop"
+            href="/auth/install?shop=auditly-pro-app.myshopify.com"
+        >
 
             Connect Shopify Store
 
         </a>
 
+    </section>
+
+
+
+    <!-- ==========================================
+         BILLING
+    =========================================== -->
+
+    <section
+        class="card"
+        id="billingCard"
+    >
+
+        <h2>
+            💳 Auditly Pro Subscription
+        </h2>
+
+
+        <div id="billingStatus">
+
+            Checking subscription status...
+
+        </div>
+
+
+        <br>
+
+
+        <div
+            id="billingPlan"
+            style="
+                padding:15px;
+                border:1px solid #ddd;
+                border-radius:8px;
+            "
+        >
+
+            <strong>
+                Auditly Pro
+            </strong>
+
+            <br><br>
+
+            <strong>
+                $27/month
+            </strong>
+
+            <br>
+
+            7-day free trial
+
+            <br><br>
+
+            <button
+                id="upgradeButton"
+                type="button"
+            >
+
+                🚀 Start 7-Day Free Trial
+
+            </button>
+
+        </div>
+
+
+        <div
+            id="billingMessage"
+            style="
+                margin-top:15px;
+            "
+        ></div>
 
     </section>
 
 
 
-
-    <!-- Audit Controls -->
+    <!-- ==========================================
+         STORE AUDIT
+    =========================================== -->
 
     <section class="card">
 
-        <h2>Store Audit</h2>
+        <h2>
+            Store Audit
+        </h2>
 
 
         <p>
@@ -90,23 +185,28 @@
         </p>
 
 
-        <button id="auditButton">
+        <button
+            id="auditButton"
+            type="button"
+        >
 
             Run Store Audit
 
         </button>
 
-
     </section>
 
 
 
-
-    <!-- Results -->
+    <!-- ==========================================
+         AUDIT RESULTS
+    =========================================== -->
 
     <section class="card">
 
-        <h2>Audit Results</h2>
+        <h2>
+            Audit Results
+        </h2>
 
 
         <div id="results">
@@ -115,9 +215,7 @@
 
         </div>
 
-
     </section>
-
 
 
 </main>
@@ -136,7 +234,9 @@
 
 
 
-<script src="/js/dashboard.js"></script>
+<script
+    src="/js/dashboard.js"
+></script>
 
 
 </body>
