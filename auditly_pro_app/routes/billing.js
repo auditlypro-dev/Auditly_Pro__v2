@@ -1,15 +1,13 @@
 const express = require("express");
-
 const router = express.Router();
 
-const { createClient } =
-    require("@supabase/supabase-js");
+const { createClient } = require("@supabase/supabase-js");
 
 console.log("💳 USING AUDITLY PRO BILLING FILE");
 
-// ==========================================
-// Configuration
-// ==========================================
+// ==================================================
+// CONFIGURATION
+// ==================================================
 
 const SHOPIFY_API_VERSION = "2026-07";
 
@@ -35,13 +33,19 @@ const PLAN_NAME =
 const PLAN_PRICE =
     27;
 
+const PLAN_CURRENCY =
+    "USD";
+
+const PLAN_INTERVAL =
+    "EVERY_30_DAYS";
+
 const TRIAL_DAYS =
     7;
 
 
-// ==========================================
-// Supabase
-// ==========================================
+// ==================================================
+// SUPABASE
+// ==================================================
 
 const supabase =
     createClient(
@@ -50,9 +54,9 @@ const supabase =
     );
 
 
-// ==========================================
-// Find Shop
-// ==========================================
+// ==================================================
+// FIND SHOP
+// ==================================================
 
 async function getShop(shop) {
 
@@ -84,9 +88,274 @@ async function getShop(shop) {
 }
 
 
-// ==========================================
-// Shopify GraphQL
-// ==========================================
+// ==================================================
+// REFRESH TOKEN
+// ==================================================
+
+async function refreshShopifyToken(
+    shop,
+    shopRecord
+) {
+
+    if (!shopRecord.refresh_token) {
+
+        throw new Error(
+            "No Shopify refresh token is stored for this shop."
+        );
+
+    }
+
+    console.log(
+        "🔄 Refreshing Shopify token for billing:",
+        shop
+    );
+
+    const response =
+        await fetch(
+            `https://${shop}/admin/oauth/access_token`,
+            {
+
+                method: "POST",
+
+                headers: {
+
+                    "Content-Type":
+                        "application/x-www-form-urlencoded",
+
+                    "Accept":
+                        "application/json"
+
+                },
+
+                body:
+                    new URLSearchParams({
+
+                        client_id:
+                            SHOPIFY_API_KEY,
+
+                        client_secret:
+                            SHOPIFY_API_SECRET,
+
+                        grant_type:
+                            "refresh_token",
+
+                        refresh_token:
+                            shopRecord.refresh_token
+
+                    }).toString()
+
+            }
+        );
+
+
+    const tokenData =
+        await response.json();
+
+
+    if (!response.ok) {
+
+        console.error(
+            "❌ BILLING TOKEN REFRESH FAILED:",
+            tokenData
+        );
+
+        throw new Error(
+            tokenData.error_description ||
+            tokenData.error ||
+            "Shopify token refresh failed."
+        );
+
+    }
+
+
+    if (!tokenData.access_token) {
+
+        throw new Error(
+            "Shopify did not return a new access token."
+        );
+
+    }
+
+
+    if (!tokenData.refresh_token) {
+
+        throw new Error(
+            "Shopify did not return a new refresh token."
+        );
+
+    }
+
+
+    const now =
+        Date.now();
+
+
+    const expiresAt =
+        new Date(
+            now +
+            (
+                tokenData.expires_in *
+                1000
+            )
+        ).toISOString();
+
+
+    let refreshTokenExpiresAt =
+        shopRecord.refresh_token_expires_at;
+
+
+    if (
+        tokenData.refresh_token_expires_in
+    ) {
+
+        refreshTokenExpiresAt =
+            new Date(
+                now +
+                (
+                    tokenData.refresh_token_expires_in *
+                    1000
+                )
+            ).toISOString();
+
+    }
+
+
+    const {
+        error
+    } = await supabase
+        .from("shops")
+        .update({
+
+            access_token:
+                tokenData.access_token,
+
+            refresh_token:
+                tokenData.refresh_token,
+
+            expires_at:
+                expiresAt,
+
+            refresh_token_expires_at:
+                refreshTokenExpiresAt,
+
+            updated_at:
+                new Date().toISOString()
+
+        })
+        .eq(
+            "shop",
+            shop
+        );
+
+
+    if (error) {
+
+        throw new Error(
+            `Unable to save refreshed token: ${error.message}`
+        );
+
+    }
+
+
+    console.log(
+        "✅ BILLING TOKEN REFRESHED"
+    );
+
+
+    return {
+
+        access_token:
+            tokenData.access_token,
+
+        refresh_token:
+            tokenData.refresh_token,
+
+        expires_at:
+            expiresAt,
+
+        refresh_token_expires_at:
+            refreshTokenExpiresAt
+
+    };
+
+}
+
+
+// ==================================================
+// GET VALID ACCESS TOKEN
+// ==================================================
+
+async function getValidAccessToken(
+    shop,
+    shopRecord
+) {
+
+    if (!shopRecord.access_token) {
+
+        throw new Error(
+            "No Shopify access token is stored for this shop."
+        );
+
+    }
+
+
+    if (!shopRecord.expires_at) {
+
+        throw new Error(
+            "This shop does not have an expiring Shopify token."
+        );
+
+    }
+
+
+    const expirationTime =
+        new Date(
+            shopRecord.expires_at
+        ).getTime();
+
+
+    const currentTime =
+        Date.now();
+
+
+    const refreshBuffer =
+        5 * 60 * 1000;
+
+
+    // Token still valid
+    if (
+        currentTime <
+        (
+            expirationTime -
+            refreshBuffer
+        )
+    ) {
+
+        return shopRecord.access_token;
+
+    }
+
+
+    console.log(
+        "⏰ Billing token expired or nearly expired."
+    );
+
+
+    const refreshed =
+        await refreshShopifyToken(
+            shop,
+            shopRecord
+        );
+
+
+    return refreshed.access_token;
+
+}
+
+
+// ==================================================
+// SHOPIFY GRAPHQL
+// ==================================================
 
 async function shopifyGraphQL(
     shop,
@@ -99,21 +368,28 @@ async function shopifyGraphQL(
         await fetch(
             `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`,
             {
+
                 method: "POST",
 
                 headers: {
+
                     "Content-Type":
                         "application/json",
 
                     "X-Shopify-Access-Token":
                         accessToken
+
                 },
 
                 body:
                     JSON.stringify({
+
                         query,
+
                         variables
+
                     })
+
             }
         );
 
@@ -125,7 +401,7 @@ async function shopifyGraphQL(
     if (!response.ok) {
 
         throw new Error(
-            `Shopify billing request failed: ${response.status}`
+            `Shopify GraphQL HTTP error: ${response.status}`
         );
 
     }
@@ -133,9 +409,18 @@ async function shopifyGraphQL(
 
     if (data.errors) {
 
+        console.error(
+            "❌ SHOPIFY GRAPHQL ERRORS:",
+            data.errors
+        );
+
+
         throw new Error(
             data.errors
-                .map(error => error.message)
+                .map(
+                    error =>
+                        error.message
+                )
                 .join("; ")
         );
 
@@ -147,10 +432,11 @@ async function shopifyGraphQL(
 }
 
 
-// ==========================================
-// Billing Status
+// ==================================================
+// GET SHOP SUBSCRIPTION STATUS
+// ==================================================
 // GET /billing/status?shop=...
-// ==========================================
+// ==================================================
 
 router.get(
     "/status",
@@ -167,12 +453,21 @@ router.get(
                 return res
                     .status(400)
                     .json({
+
                         success: false,
+
                         error:
                             "Missing shop parameter"
+
                     });
 
             }
+
+
+            console.log(
+                "💳 Checking billing status:",
+                shop
+            );
 
 
             const shopRecord =
@@ -184,30 +479,27 @@ router.get(
                 return res
                     .status(404)
                     .json({
+
                         success: false,
+
                         error:
                             "Shop not found"
+
                     });
 
             }
 
 
-            if (!shopRecord.access_token) {
-
-                return res.json({
-                    success: true,
+            const accessToken =
+                await getValidAccessToken(
                     shop,
-                    active: false,
-                    status:
-                        "NOT_CONNECTED"
-                });
-
-            }
+                    shopRecord
+                );
 
 
             const query = `
 
-                query {
+                query GetAuditlySubscription {
 
                     currentAppInstallation {
 
@@ -232,22 +524,42 @@ router.get(
             const data =
                 await shopifyGraphQL(
                     shop,
-                    shopRecord.access_token,
+                    accessToken,
                     query
                 );
 
 
+            const installation =
+                data?.data
+                    ?.currentAppInstallation;
+
+
             const subscriptions =
-                data.data
-                    .currentAppInstallation
-                    .activeSubscriptions || [];
+                installation
+                    ?.activeSubscriptions ||
+                [];
+
+
+            const auditlySubscription =
+                subscriptions.find(
+                    subscription =>
+                        subscription.name ===
+                        PLAN_NAME
+                );
 
 
             const active =
-                subscriptions.length > 0;
+                !!auditlySubscription;
 
 
-            res.json({
+            console.log(
+                active
+                    ? "✅ AUDITLY PRO SUBSCRIPTION ACTIVE"
+                    : "ℹ️ AUDITLY PRO SUBSCRIPTION NOT ACTIVE"
+            );
+
+
+            return res.json({
 
                 success: true,
 
@@ -256,9 +568,24 @@ router.get(
                 active,
 
                 status:
-                    active
-                        ? subscriptions[0].status
-                        : "INACTIVE",
+                    auditlySubscription
+                        ?.status ||
+                    "INACTIVE",
+
+                plan:
+                    auditlySubscription
+                        ?.name ||
+                    PLAN_NAME,
+
+                price:
+                    "$27/month",
+
+                trialDays:
+                    TRIAL_DAYS,
+
+                subscription:
+                    auditlySubscription ||
+                    null,
 
                 subscriptions
 
@@ -273,7 +600,7 @@ router.get(
             );
 
 
-            res
+            return res
                 .status(500)
                 .json({
 
@@ -293,10 +620,11 @@ router.get(
 );
 
 
-// ==========================================
-// Create Subscription
+// ==================================================
+// START FREE TRIAL / CREATE SUBSCRIPTION
+// ==================================================
 // POST /billing/upgrade
-// ==========================================
+// ==================================================
 
 router.post(
     "/upgrade",
@@ -326,7 +654,7 @@ router.post(
 
 
             console.log(
-                "💳 Starting billing upgrade for:",
+                "💳 STARTING AUDITLY PRO TRIAL:",
                 shop
             );
 
@@ -351,33 +679,113 @@ router.post(
             }
 
 
-            if (!shopRecord.access_token) {
+            const accessToken =
+                await getValidAccessToken(
+                    shop,
+                    shopRecord
+                );
 
-                return res
-                    .status(400)
-                    .json({
 
-                        success: false,
+            // ==================================================
+            // FIRST CHECK FOR EXISTING SUBSCRIPTION
+            // ==================================================
 
-                        error:
-                            "No Shopify access token found."
+            const statusQuery = `
 
-                    });
+                query CheckExistingSubscription {
+
+                    currentAppInstallation {
+
+                        activeSubscriptions {
+
+                            id
+                            name
+                            status
+                            createdAt
+                            currentPeriodEnd
+                            trialDays
+
+                        }
+
+                    }
+
+                }
+
+            `;
+
+
+            const statusData =
+                await shopifyGraphQL(
+                    shop,
+                    accessToken,
+                    statusQuery
+                );
+
+
+            const existingSubscriptions =
+                statusData
+                    ?.data
+                    ?.currentAppInstallation
+                    ?.activeSubscriptions ||
+                [];
+
+
+            const existingAuditlySubscription =
+                existingSubscriptions.find(
+                    subscription =>
+                        subscription.name ===
+                        PLAN_NAME
+                );
+
+
+            // ==================================================
+            // ALREADY ACTIVE
+            // ==================================================
+
+            if (existingAuditlySubscription) {
+
+                console.log(
+                    "ℹ️ AUDITLY PRO ALREADY ACTIVE"
+                );
+
+
+                return res.json({
+
+                    success: true,
+
+                    active: true,
+
+                    alreadySubscribed:
+                        true,
+
+                    message:
+                        "Auditly Pro subscription is already active.",
+
+                    subscription:
+                        existingAuditlySubscription
+
+                });
 
             }
 
 
-            // ======================================
-            // Shopify Subscription
-            // ======================================
+            // ==================================================
+            // CREATE SUBSCRIPTION
+            // ==================================================
 
             const mutation = `
 
                 mutation CreateAuditlySubscription(
-                    $name: String!,
-                    $lineItems: [AppSubscriptionLineItemInput!]!,
-                    $returnUrl: URL!,
+
+                    $name: String!
+
+                    $lineItems:
+                        [AppSubscriptionLineItemInput!]!
+
+                    $returnUrl: URL!
+
                     $trialDays: Int
+
                 ) {
 
                     appSubscriptionCreate(
@@ -404,6 +812,8 @@ router.post(
                             id
                             name
                             status
+                            createdAt
+                            trialDays
 
                         }
 
@@ -441,12 +851,12 @@ router.post(
                                         PLAN_PRICE,
 
                                     currencyCode:
-                                        "USD"
+                                        PLAN_CURRENCY
 
                                 },
 
                                 interval:
-                                    "EVERY_30_DAYS"
+                                    PLAN_INTERVAL
 
                             }
 
@@ -459,23 +869,38 @@ router.post(
             };
 
 
+            console.log(
+                "💳 CREATING SHOPIFY SUBSCRIPTION..."
+            );
+
+
             const data =
                 await shopifyGraphQL(
                     shop,
-                    shopRecord.access_token,
+                    accessToken,
                     mutation,
                     variables
                 );
 
 
             const result =
-                data.data
-                    .appSubscriptionCreate;
+                data
+                    ?.data
+                    ?.appSubscriptionCreate;
 
 
-            // ======================================
-            // Shopify Validation Errors
-            // ======================================
+            if (!result) {
+
+                throw new Error(
+                    "Shopify did not return a subscription response."
+                );
+
+            }
+
+
+            // ==================================================
+            // SHOPIFY USER ERRORS
+            // ==================================================
 
             if (
                 result.userErrors &&
@@ -483,7 +908,7 @@ router.post(
             ) {
 
                 console.error(
-                    "❌ BILLING USER ERRORS:",
+                    "❌ SHOPIFY BILLING USER ERRORS:",
                     result.userErrors
                 );
 
@@ -505,6 +930,10 @@ router.post(
             }
 
 
+            // ==================================================
+            // CONFIRMATION URL
+            // ==================================================
+
             if (
                 !result.confirmationUrl
             ) {
@@ -524,21 +953,24 @@ router.post(
 
 
             console.log(
-                "✅ Shopify billing subscription created:",
-                result.appSubscription?.id
+                "✅ AUDITLY PRO SUBSCRIPTION CREATED:",
+                result
+                    .appSubscription
+                    ?.id
             );
 
 
-            // ======================================
-            // Send Merchant to Shopify
-            // ======================================
-
-            res.json({
+            return res.json({
 
                 success: true,
 
+                active: false,
+
+                approvalRequired:
+                    true,
+
                 message:
-                    "Billing approval required.",
+                    "Please approve your Auditly Pro subscription in Shopify.",
 
                 plan:
                     PLAN_NAME,
@@ -549,8 +981,13 @@ router.post(
                 trialDays:
                     TRIAL_DAYS,
 
+                interval:
+                    PLAN_INTERVAL,
+
                 subscriptionId:
-                    result.appSubscription?.id,
+                    result
+                        .appSubscription
+                        ?.id,
 
                 confirmationUrl:
                     result.confirmationUrl
@@ -566,7 +1003,7 @@ router.post(
             );
 
 
-            res
+            return res
                 .status(500)
                 .json({
 
@@ -586,124 +1023,8 @@ router.post(
 );
 
 
-// ==========================================
-// Billing Callback
-// GET /billing/callback
-// ==========================================
-
-router.get(
-    "/callback",
-    async (req, res) => {
-
-        const shop =
-            req.query.shop;
-
-
-        if (!shop) {
-
-            return res
-                .status(400)
-                .send(
-                    "Missing Shopify shop parameter."
-                );
-
-        }
-
-
-        res.send(`
-
-            <!DOCTYPE html>
-
-            <html>
-
-            <head>
-
-                <meta charset="UTF-8">
-
-                <meta
-                    name="viewport"
-                    content="width=device-width, initial-scale=1.0"
-                >
-
-                <title>
-                    Auditly Pro Billing
-                </title>
-
-            </head>
-
-            <body>
-
-                <h1>
-                    🎉 Welcome to Auditly Pro!
-                </h1>
-
-                <p>
-                    Your Shopify billing process
-                    has returned to Auditly Pro.
-                </p>
-
-                <p>
-                    We are checking your
-                    subscription status.
-                </p>
-
-                <br>
-
-                <a
-                    href="/dashboard"
-                >
-                    Return to Auditly Pro
-                </a>
-
-            </body>
-
-            </html>
-
-        `);
-
-    }
-);
-
-
-// ==========================================
-// Billing Information
-// GET /billing
-// ==========================================
-
-router.get(
-    "/",
-    (req, res) => {
-
-        res.json({
-
-            success: true,
-
-            product:
-                "Auditly Pro",
-
-            plan:
-                "Auditly Pro",
-
-            price:
-                "$27/month",
-
-            trial:
-                "7 days",
-
-            billing:
-                "Every 30 days",
-
-            status:
-                "Shopify Billing API Ready"
-
-        });
-
-    }
-);
-
-
-// ==========================================
-// Export
-// ==========================================
-
-module.exports = router;
+// ==================================================
+// BILLING CALLBACK
+// ==================================================
+// Shopify sends the merchant back here after approval.
+// We verify the subscription instead of bli
