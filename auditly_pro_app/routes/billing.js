@@ -1027,4 +1027,302 @@ router.post(
 // BILLING CALLBACK
 // ==================================================
 // Shopify sends the merchant back here after approval.
-// We verify the subscription instead of bli
+// We verify the subscription instead of blindly assuming
+// that approval occurred.
+// ==================================================
+
+router.get(
+    "/callback",
+    async (req, res) => {
+
+        try {
+
+            const shop =
+                req.query.shop;
+
+
+            if (!shop) {
+
+                return res
+                    .status(400)
+                    .send(
+                        "Missing Shopify shop parameter."
+                    );
+
+            }
+
+
+            console.log(
+                "💳 BILLING CALLBACK:",
+                shop
+            );
+
+
+            const shopRecord =
+                await getShop(shop);
+
+
+            if (!shopRecord) {
+
+                return res
+                    .status(404)
+                    .send(
+                        "Shop not found."
+                    );
+
+            }
+
+
+            const accessToken =
+                await getValidAccessToken(
+                    shop,
+                    shopRecord
+                );
+
+
+            const query = `
+
+                query VerifyAuditlySubscription {
+
+                    currentAppInstallation {
+
+                        activeSubscriptions {
+
+                            id
+                            name
+                            status
+                            createdAt
+                            currentPeriodEnd
+                            trialDays
+
+                        }
+
+                    }
+
+                }
+
+            `;
+
+
+            const data =
+                await shopifyGraphQL(
+                    shop,
+                    accessToken,
+                    query
+                );
+
+
+            const subscriptions =
+                data
+                    ?.data
+                    ?.currentAppInstallation
+                    ?.activeSubscriptions ||
+                [];
+
+
+            const subscription =
+                subscriptions.find(
+                    item =>
+                        item.name ===
+                        PLAN_NAME
+                );
+
+
+            if (subscription) {
+
+                console.log(
+                    "🎉 AUDITLY PRO SUBSCRIPTION VERIFIED:",
+                    subscription.id
+                );
+
+
+                return res.send(`
+
+                    <!DOCTYPE html>
+
+                    <html>
+
+                    <head>
+
+                        <meta charset="UTF-8">
+
+                        <meta
+                            name="viewport"
+                            content="width=device-width, initial-scale=1.0"
+                        >
+
+                        <title>
+                            Auditly Pro
+                        </title>
+
+                    </head>
+
+                    <body>
+
+                        <h1>
+                            🎉 Welcome to Auditly Pro!
+                        </h1>
+
+                        <h2>
+                            Your subscription is active.
+                        </h2>
+
+                        <p>
+                            Your 7-day free trial has started.
+                        </p>
+
+                        <p>
+                            After the trial, your plan will be
+                            $27/month unless cancelled.
+                        </p>
+
+                        <br>
+
+                        <a href="/dashboard">
+                            Return to Auditly Pro
+                        </a>
+
+                    </body>
+
+                    </html>
+
+                `);
+
+            }
+
+
+            // ==================================================
+            // APPROVAL NOT YET ACTIVE
+            // ==================================================
+
+            return res.send(`
+
+                <!DOCTYPE html>
+
+                <html>
+
+                <head>
+
+                    <meta charset="UTF-8">
+
+                    <meta
+                        name="viewport"
+                        content="width=device-width, initial-scale=1.0"
+                    >
+
+                    <title>
+                        Auditly Pro
+                    </title>
+
+                </head>
+
+                <body>
+
+                    <h1>
+                        Billing Approval Pending
+                    </h1>
+
+                    <p>
+                        Shopify has not yet reported an active
+                        Auditly Pro subscription.
+                    </p>
+
+                    <br>
+
+                    <a href="/dashboard">
+                        Return to Auditly Pro
+                    </a>
+
+                </body>
+
+                </html>
+
+            `);
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ BILLING CALLBACK ERROR:",
+                error.message
+            );
+
+
+            return res
+                .status(500)
+                .send(`
+
+                    <h1>
+                        Billing verification failed
+                    </h1>
+
+                    <p>
+                        ${error.message}
+                    </p>
+
+                    <br>
+
+                    <a href="/dashboard">
+                        Return to Auditly Pro
+                    </a>
+
+                `);
+
+        }
+
+    }
+);
+
+
+// ==================================================
+// BILLING INFORMATION
+// ==================================================
+// GET /billing
+// ==================================================
+
+router.get(
+    "/",
+    (req, res) => {
+
+        res.json({
+
+            success: true,
+
+            product:
+                "Auditly Pro",
+
+            plan:
+                PLAN_NAME,
+
+            price:
+                "$27/month",
+
+            currency:
+                PLAN_CURRENCY,
+
+            billing:
+                "Every 30 days",
+
+            trial:
+                "7 days",
+
+            billingProvider:
+                "Shopify Billing API",
+
+            apiVersion:
+                SHOPIFY_API_VERSION,
+
+            status:
+                "READY"
+
+        });
+
+    }
+);
+
+
+// ==================================================
+// EXPORT
+// ==================================================
+
+module.exports = router;
