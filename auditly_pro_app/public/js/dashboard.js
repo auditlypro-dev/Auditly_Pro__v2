@@ -23,6 +23,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsElement =
         document.getElementById("results");
 
+    const trialButton =
+        document.getElementById("trialButton");
+
+    const subscriptionStatusElement =
+        document.getElementById("subscriptionStatus");
+
 
     // ==========================================
     // Escape HTML
@@ -78,6 +84,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function checkServer() {
 
+        if (!statusElement) {
+            return;
+        }
+
         try {
 
             const response =
@@ -122,6 +132,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
 
     async function checkShopifyConnection() {
+
+        if (!shopStatusElement) {
+            return;
+        }
 
         shopStatusElement.innerHTML =
             "🔄 Checking Shopify connection...";
@@ -217,6 +231,250 @@ document.addEventListener("DOMContentLoaded", () => {
             `;
 
         }
+
+    }
+
+
+    // ==========================================
+    // Check Subscription Status
+    // ==========================================
+
+    async function checkSubscriptionStatus() {
+
+        if (!subscriptionStatusElement) {
+            return;
+        }
+
+        subscriptionStatusElement.innerHTML =
+            "🔄 Checking subscription status...";
+
+        try {
+
+            const response =
+                await fetch(
+                    `/billing/status?shop=${encodeURIComponent(shop)}`
+                );
+
+            const data =
+                await response.json();
+
+            console.log(
+                "💳 Billing status:",
+                data
+            );
+
+
+            if (
+                response.ok &&
+                data.success &&
+                data.active
+            ) {
+
+                subscriptionStatusElement.innerHTML = `
+
+                    <div>
+
+                        🟢
+                        <strong>
+                            Auditly Pro Subscription Active
+                        </strong>
+
+                        <br><br>
+
+                        Plan:
+                        <strong>
+                            Auditly Pro
+                        </strong>
+
+                        <br>
+
+                        Price:
+                        <strong>
+                            $27/month
+                        </strong>
+
+                        <br><br>
+
+                        Status:
+                        ${escapeHtml(
+                            data.status || "ACTIVE"
+                        )}
+
+                    </div>
+
+                `;
+
+
+                if (trialButton) {
+
+                    trialButton.style.display =
+                        "none";
+
+                }
+
+            } else {
+
+                subscriptionStatusElement.innerHTML = `
+
+                    <div>
+
+                        🟡
+                        <strong>
+                            No active Auditly Pro subscription
+                        </strong>
+
+                        <br><br>
+
+                        <strong>
+                            Auditly Pro
+                        </strong>
+
+                        <br>
+
+                        $27/month
+
+                        <br>
+
+                        7-day free trial
+
+                    </div>
+
+                `;
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Subscription status check failed:",
+                error
+            );
+
+            subscriptionStatusElement.innerHTML = `
+
+                🟡
+                <strong>
+                    Subscription status unavailable.
+                </strong>
+
+            `;
+
+        }
+
+    }
+
+
+    // ==========================================
+    // Start 7-Day Free Trial
+    // ==========================================
+
+    if (trialButton) {
+
+        trialButton.addEventListener(
+            "click",
+            async () => {
+
+                trialButton.disabled = true;
+
+                const originalText =
+                    trialButton.innerHTML;
+
+                trialButton.innerHTML =
+                    "🔄 Connecting to Shopify Billing...";
+
+
+                try {
+
+                    console.log(
+                        "💳 Starting Auditly Pro trial for:",
+                        shop
+                    );
+
+
+                    const response =
+                        await fetch(
+                            `/billing/upgrade?shop=${encodeURIComponent(shop)}`,
+                            {
+                                method: "POST",
+
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                }
+                            }
+                        );
+
+
+                    const data =
+                        await response.json();
+
+
+                    console.log(
+                        "💳 Billing response:",
+                        data
+                    );
+
+
+                    if (
+                        response.ok &&
+                        data.success &&
+                        data.confirmationUrl
+                    ) {
+
+                        console.log(
+                            "✅ Shopify billing confirmation URL received"
+                        );
+
+
+                        // Send merchant to Shopify's
+                        // billing approval page.
+
+                        window.location.href =
+                            data.confirmationUrl;
+
+                        return;
+
+                    }
+
+
+                    alert(
+                        data.error ||
+                        data.message ||
+                        data.details ||
+                        "Unable to start the free trial."
+                    );
+
+
+                } catch (error) {
+
+                    console.error(
+                        "❌ Billing request failed:",
+                        error
+                    );
+
+
+                    alert(
+                        "Unable to connect to Shopify billing. " +
+                        "Please try again."
+                    );
+
+                } finally {
+
+                    trialButton.disabled = false;
+
+                    trialButton.innerHTML =
+                        originalText;
+
+                }
+
+            }
+        );
+
+    } else {
+
+        console.warn(
+            "⚠️ trialButton was not found on the dashboard."
+        );
 
     }
 
@@ -422,19 +680,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 : [];
 
 
-        // ======================================
-        // Score
-        // ======================================
-
         const scoreDisplay =
             score === null
                 ? "N/A"
                 : `${score}/100`;
 
-
-        // ======================================
-        // Zero Product Warning
-        // ======================================
 
         let zeroProductWarning = "";
 
@@ -467,10 +717,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
 
-        // ======================================
-        // Final Results
-        // ======================================
-
         resultsElement.innerHTML = `
 
             <div>
@@ -478,9 +724,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h2>
                     🧾 Audit Results
                 </h2>
-
-
-                <!-- SCORE -->
 
                 <div style="
                     margin:20px 0;
@@ -510,8 +753,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 </div>
 
-
-                <!-- SUMMARY -->
 
                 <div style="
                     margin-bottom:20px;
@@ -550,16 +791,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${zeroProductWarning}
 
 
-                <!-- FINDINGS -->
-
                 <h3>
                     🔍 Findings
                 </h3>
 
                 ${renderFindings(findings)}
 
-
-                <!-- RECOMMENDATIONS -->
 
                 <h3 style="
                     margin-top:25px;
@@ -573,8 +810,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     recommendations
                 )}
 
-
-                <!-- AUDIT DATE -->
 
                 <div style="
                     margin-top:25px;
@@ -724,5 +959,7 @@ document.addEventListener("DOMContentLoaded", () => {
     checkServer();
 
     checkShopifyConnection();
+
+    checkSubscriptionStatus();
 
 });
