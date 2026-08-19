@@ -1,20 +1,15 @@
 // ==========================================
 // Auditly Pro v2
-// Complete Dashboard JavaScript
+// Dashboard JavaScript
 // ==========================================
 
 document.addEventListener("DOMContentLoaded", () => {
 
     // ==========================================
-    // CONFIGURATION
+    // Configuration
     // ==========================================
 
     const shop = "auditly-pro-app.myshopify.com";
-
-
-    // ==========================================
-    // DASHBOARD ELEMENTS
-    // ==========================================
 
     const statusElement =
         document.getElementById("status");
@@ -22,24 +17,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const shopStatusElement =
         document.getElementById("shopStatus");
 
-    const billingStatusElement =
-        document.getElementById("billingStatus");
-
-    const billingMessageElement =
-        document.getElementById("billingMessage");
-
-    const upgradeButton =
-        document.getElementById("upgradeButton");
-
     const auditButton =
         document.getElementById("auditButton");
 
     const resultsElement =
         document.getElementById("results");
 
+    const trialButton =
+        document.getElementById("trialButton");
+
+    const subscriptionStatusElement =
+        document.getElementById("subscriptionStatus");
+
 
     // ==========================================
-    // ESCAPE HTML
+    // Escape HTML
     // ==========================================
 
     function escapeHtml(value) {
@@ -55,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // SEVERITY DISPLAY
+    // Severity Display
     // ==========================================
 
     function severityLabel(severity) {
@@ -87,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // SERVER HEALTH
+    // Check Server
     // ==========================================
 
     async function checkServer() {
@@ -103,7 +95,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const data =
                 await response.json();
-
 
             if (
                 response.ok &&
@@ -124,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
 
             console.error(
-                "❌ Server health check failed:",
+                "Server health check failed:",
                 error
             );
 
@@ -137,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // SHOPIFY CONNECTION
+    // Check Shopify Connection
     // ==========================================
 
     async function checkShopifyConnection() {
@@ -149,7 +140,6 @@ document.addEventListener("DOMContentLoaded", () => {
         shopStatusElement.innerHTML =
             "🔄 Checking Shopify connection...";
 
-
         try {
 
             const response =
@@ -157,10 +147,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     `/api/store?shop=${encodeURIComponent(shop)}`
                 );
 
-
             const data =
                 await response.json();
-
 
             if (
                 response.ok &&
@@ -170,7 +158,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 const store =
                     data.shop;
-
 
                 shopStatusElement.innerHTML = `
 
@@ -185,24 +172,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         <strong>
                             ${escapeHtml(
-                                store.name ||
-                                "Shopify Store"
+                                store.name || "Shopify Store"
                             )}
                         </strong>
 
                         <br>
 
                         ${escapeHtml(
-                            store.myshopifyDomain ||
-                            shop
+                            store.myshopifyDomain || shop
                         )}
 
                         <br><br>
 
                         Currency:
                         ${escapeHtml(
-                            store.currencyCode ||
-                            "N/A"
+                            store.currencyCode || "N/A"
                         )}
 
                     </div>
@@ -233,10 +217,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
 
             console.error(
-                "❌ Shopify connection check failed:",
+                "Shopify connection check failed:",
                 error
             );
-
 
             shopStatusElement.innerHTML = `
 
@@ -244,13 +227,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 <strong>
                     Unable to check Shopify connection.
                 </strong>
-
-                <br><br>
-
-                ${escapeHtml(
-                    error.message ||
-                    "Unknown error."
-                )}
 
             `;
 
@@ -260,19 +236,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // CHECK SUBSCRIPTION STATUS
+    // Check Subscription Status
     // ==========================================
 
     async function checkSubscriptionStatus() {
 
-        if (!billingStatusElement) {
+        if (!subscriptionStatusElement) {
             return;
         }
 
-
-        billingStatusElement.innerHTML =
+        subscriptionStatusElement.innerHTML =
             "🔄 Checking subscription status...";
-
 
         try {
 
@@ -281,10 +255,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     `/billing/status?shop=${encodeURIComponent(shop)}`
                 );
 
-
             const data =
                 await response.json();
-
 
             console.log(
                 "💳 Billing status:",
@@ -298,7 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 data.active
             ) {
 
-                billingStatusElement.innerHTML = `
+                subscriptionStatusElement.innerHTML = `
 
                     <div>
 
@@ -325,8 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         Status:
                         ${escapeHtml(
-                            data.status ||
-                            "ACTIVE"
+                            data.status || "ACTIVE"
                         )}
 
                     </div>
@@ -334,23 +305,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
 
 
-                if (upgradeButton) {
+                if (trialButton) {
 
-                    upgradeButton.style.display =
+                    trialButton.style.display =
                         "none";
-
-                }
-
-
-                if (billingMessageElement) {
-
-                    billingMessageElement.innerHTML = "";
 
                 }
 
             } else {
 
-                billingStatusElement.innerHTML = `
+                subscriptionStatusElement.innerHTML = `
 
                     <div>
 
@@ -377,25 +341,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 `;
 
-
-                if (upgradeButton) {
-
-                    upgradeButton.style.display =
-                        "inline-block";
-
-                }
-
             }
 
         } catch (error) {
 
             console.error(
-                "❌ Subscription status check failed:",
+                "Subscription status check failed:",
                 error
             );
 
-
-            billingStatusElement.innerHTML = `
+            subscriptionStatusElement.innerHTML = `
 
                 🟡
                 <strong>
@@ -410,59 +365,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // START 7-DAY FREE TRIAL
+    // Start 7-Day Free Trial
     // ==========================================
 
-    if (upgradeButton) {
+    if (trialButton) {
 
-        upgradeButton.addEventListener(
+        trialButton.addEventListener(
             "click",
             async () => {
 
-                // ----------------------------------
-                // Disable button
-                // ----------------------------------
-
-                upgradeButton.disabled = true;
-
+                trialButton.disabled = true;
 
                 const originalText =
-                    upgradeButton.innerHTML;
+                    trialButton.innerHTML;
 
-
-                upgradeButton.innerHTML =
+                trialButton.innerHTML =
                     "🔄 Connecting to Shopify Billing...";
-
-
-                if (billingMessageElement) {
-
-                    billingMessageElement.innerHTML = `
-
-                        🔄
-                        <strong>
-                            Connecting to Shopify...
-                        </strong>
-
-                        <br><br>
-
-                        Preparing your 7-day free trial.
-
-                    `;
-
-                }
 
 
                 try {
 
                     console.log(
-                        "💳 Starting Auditly Pro subscription:",
+                        "💳 Starting Auditly Pro trial for:",
                         shop
                     );
 
-
-                    // ----------------------------------
-                    // Call billing backend
-                    // ----------------------------------
 
                     const response =
                         await fetch(
@@ -473,11 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 headers: {
                                     "Content-Type":
                                         "application/json"
-                                },
-
-                                body: JSON.stringify({
-                                    shop: shop
-                                })
+                                }
                             }
                         );
 
@@ -487,14 +410,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
                     console.log(
-                        "💳 Billing upgrade response:",
+                        "💳 Billing response:",
                         data
                     );
 
-
-                    // ----------------------------------
-                    // Shopify confirmation URL
-                    // ----------------------------------
 
                     if (
                         response.ok &&
@@ -503,68 +422,28 @@ document.addEventListener("DOMContentLoaded", () => {
                     ) {
 
                         console.log(
-                            "✅ Shopify billing confirmation URL received."
+                            "✅ Shopify billing confirmation URL received"
                         );
 
 
-                        if (billingMessageElement) {
-
-                            billingMessageElement.innerHTML = `
-
-                                🟢
-                                <strong>
-                                    Redirecting to Shopify...
-                                </strong>
-
-                            `;
-
-                        }
-
-
-                        // ----------------------------------
-                        // Send merchant to Shopify
-                        // ----------------------------------
+                        // Send merchant to Shopify's
+                        // billing approval page.
 
                         window.location.href =
                             data.confirmationUrl;
-
 
                         return;
 
                     }
 
 
-                    // ----------------------------------
-                    // Billing error
-                    // ----------------------------------
-
-                    console.error(
-                        "❌ Billing upgrade failed:",
-                        data
+                    alert(
+                        data.error ||
+                        data.message ||
+                        data.details ||
+                        "Unable to start the free trial."
                     );
 
-
-                    if (billingMessageElement) {
-
-                        billingMessageElement.innerHTML = `
-
-                            🔴
-                            <strong>
-                                Unable to start your free trial.
-                            </strong>
-
-                            <br><br>
-
-                            ${escapeHtml(
-                                data.error ||
-                                data.message ||
-                                data.details ||
-                                "Shopify did not provide a billing confirmation URL."
-                            )}
-
-                        `;
-
-                    }
 
                 } catch (error) {
 
@@ -574,37 +453,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     );
 
 
-                    if (billingMessageElement) {
-
-                        billingMessageElement.innerHTML = `
-
-                            🔴
-                            <strong>
-                                Unable to connect to Shopify billing.
-                            </strong>
-
-                            <br><br>
-
-                            ${escapeHtml(
-                                error.message ||
-                                "Network error."
-                            )}
-
-                        `;
-
-                    }
+                    alert(
+                        "Unable to connect to Shopify billing. " +
+                        "Please try again."
+                    );
 
                 } finally {
 
-                    // ----------------------------------
-                    // Re-enable button
-                    // ----------------------------------
+                    trialButton.disabled = false;
 
-                    upgradeButton.disabled =
-                        false;
-
-
-                    upgradeButton.innerHTML =
+                    trialButton.innerHTML =
                         originalText;
 
                 }
@@ -614,15 +472,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     } else {
 
-        console.error(
-            "❌ CRITICAL: #upgradeButton was not found."
+        console.warn(
+            "⚠️ trialButton was not found on the dashboard."
         );
 
     }
 
-
+                            
     // ==========================================
-    // RENDER FINDINGS
+    // Render Findings
     // ==========================================
 
     function renderFindings(findings) {
@@ -630,117 +488,101 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!findings.length) {
 
             return `
-
                 <div style="
                     padding:15px;
                     border:1px solid #ddd;
                     border-radius:8px;
                 ">
-
                     🟢
                     <strong>
                         No product issues were detected.
                     </strong>
-
                 </div>
-
             `;
 
         }
 
 
-        return findings.map(
-            finding => {
+        return findings.map(finding => {
 
-                const category =
-                    finding.category ||
-                    "General";
+            const category =
+                finding.category || "General";
 
+            const product =
+                finding.productTitle || "Store";
 
-                const product =
-                    finding.productTitle ||
-                    "Store";
+            const message =
+                finding.message || "Issue detected.";
 
+            const severity =
+                finding.severity || "notice";
 
-                const message =
-                    finding.message ||
-                    "Issue detected.";
-
-
-                const severity =
-                    finding.severity ||
-                    "notice";
+            const recommendation =
+                finding.recommendation;
 
 
-                const recommendation =
-                    finding.recommendation;
+            return `
 
+                <div style="
+                    margin-bottom:15px;
+                    padding:15px;
+                    border:1px solid #ddd;
+                    border-radius:8px;
+                ">
 
-                return `
+                    <strong>
+                        ${escapeHtml(category)}
+                    </strong>
 
-                    <div style="
-                        margin-bottom:15px;
-                        padding:15px;
-                        border:1px solid #ddd;
-                        border-radius:8px;
-                    ">
+                    <br><br>
 
-                        <strong>
-                            ${escapeHtml(category)}
-                        </strong>
+                    <strong>
+                        ${escapeHtml(product)}
+                    </strong>
 
-                        <br><br>
+                    <br><br>
 
-                        <strong>
-                            ${escapeHtml(product)}
-                        </strong>
+                    ${escapeHtml(message)}
 
-                        <br><br>
+                    <br><br>
 
-                        ${escapeHtml(message)}
+                    <strong>
+                        Severity:
+                    </strong>
 
-                        <br><br>
+                    ${escapeHtml(
+                        severityLabel(severity)
+                    )}
 
-                        <strong>
-                            Severity:
-                        </strong>
+                    ${
+                        recommendation
+                            ? `
+                                <br><br>
 
-                        ${escapeHtml(
-                            severityLabel(severity)
-                        )}
+                                <strong>
+                                    💡 Recommendation:
+                                </strong>
 
-                        ${
-                            recommendation
-                                ? `
+                                <br>
 
-                                    <br><br>
+                                ${escapeHtml(
+                                    recommendation
+                                )}
+                              `
+                            : ""
+                    }
 
-                                    <strong>
-                                        💡 Recommendation:
-                                    </strong>
+                </div>
 
-                                    <br>
+            `;
 
-                                    ${escapeHtml(
-                                        recommendation
-                                    )}
-
-                                `
-                                : ""
-                        }
-
-                    </div>
-
-                `;
-
-            }
-        ).join("");
+        }).join("");
 
     }
 
 
     // ==========================================
-    // RENDER RECOMMENDATIONS
+    // Render Overall Recommendations
     // ==========================================
 
     function renderRecommendations(
@@ -750,11 +592,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!recommendations.length) {
 
             return `
-
                 <p>
                     No additional recommendations available.
                 </p>
-
             `;
 
         }
@@ -806,51 +646,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // RENDER AUDIT RESULTS
+    // Render Audit Results
     // ==========================================
 
     function renderAuditResults(data) {
-
-        if (!resultsElement) {
-            return;
-        }
-
 
         const score =
             Number.isFinite(Number(data.score))
                 ? Number(data.score)
                 : null;
 
-
         const rating =
             data.rating ||
             "Audit Incomplete";
 
-
         const summary =
-            data.summary ||
-            {};
-
+            data.summary || {};
 
         const totalProducts =
-            Number(
-                summary.totalProducts ||
-                0
-            );
-
+            Number(summary.totalProducts || 0);
 
         const productsWithIssues =
-            Number(
-                summary.productsWithIssues ||
-                0
-            );
-
+            Number(summary.productsWithIssues || 0);
 
         const findings =
             Array.isArray(data.findings)
                 ? data.findings
                 : [];
-
 
         const recommendations =
             Array.isArray(data.recommendations)
@@ -864,12 +686,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 : `${score}/100`;
 
 
-            // ------------------------------------------
-        // Zero product warning
-        // ------------------------------------------
-
         let zeroProductWarning = "";
-
 
         if (totalProducts === 0) {
 
@@ -900,10 +717,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
 
-        // ------------------------------------------
-        // Results
-        // ------------------------------------------
-
         resultsElement.innerHTML = `
 
             <div>
@@ -911,9 +724,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h2>
                     🧾 Audit Results
                 </h2>
-
-
-                <!-- SCORE -->
 
                 <div style="
                     margin:20px 0;
@@ -932,7 +742,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     </div>
 
-
                     <div style="
                         font-size:20px;
                         margin-top:5px;
@@ -944,8 +753,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 </div>
 
-
-                <!-- SUMMARY -->
 
                 <div style="
                     margin-bottom:20px;
@@ -959,8 +766,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     </strong>
 
                     ${escapeHtml(
-                        data.shop ||
-                        shop
+                        data.shop || shop
                     )}
 
                     <br><br>
@@ -985,16 +791,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${zeroProductWarning}
 
 
-                <!-- FINDINGS -->
-
                 <h3>
                     🔍 Findings
                 </h3>
 
                 ${renderFindings(findings)}
 
-
-                <!-- RECOMMENDATIONS -->
 
                 <h3 style="
                     margin-top:25px;
@@ -1008,8 +810,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     recommendations
                 )}
 
-
-                <!-- AUDIT DATE -->
 
                 <div style="
                     margin-top:25px;
@@ -1034,7 +834,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // RUN STORE AUDIT
+    // Run Store Audit
     // ==========================================
 
     if (auditButton) {
@@ -1043,27 +843,21 @@ document.addEventListener("DOMContentLoaded", () => {
             "click",
             async () => {
 
-                auditButton.disabled =
-                    true;
+                auditButton.disabled = true;
 
+                resultsElement.innerHTML = `
 
-                if (resultsElement) {
+                    🔄
+                    <strong>
+                        Running Store Audit...
+                    </strong>
 
-                    resultsElement.innerHTML = `
+                    <br><br>
 
-                        🔄
-                        <strong>
-                            Running Store Audit...
-                        </strong>
+                    Auditly Pro is analyzing
+                    your Shopify store.
 
-                        <br><br>
-
-                        Auditly Pro is analyzing
-                        your Shopify store.
-
-                    `;
-
-                }
+                `;
 
 
                 try {
@@ -1096,106 +890,76 @@ document.addEventListener("DOMContentLoaded", () => {
                             data
                         );
 
-
                         renderAuditResults(
                             data
                         );
-
 
                         return;
 
                     }
 
 
-                    console.error(
-                        "❌ Audit failed:",
-                        data
-                    );
+                    resultsElement.innerHTML = `
 
+                        🔴
+                        <strong>
+                            Audit could not be completed.
+                        </strong>
 
-                    if (resultsElement) {
+                        <br><br>
 
-                        resultsElement.innerHTML = `
+                        ${escapeHtml(
+                            data.error ||
+                            data.message ||
+                            data.details ||
+                            "Unknown error."
+                        )}
 
-                            🔴
-                            <strong>
-                                Audit could not be completed.
-                            </strong>
-
-                            <br><br>
-
-                            ${escapeHtml(
-                                data.error ||
-                                data.message ||
-                                data.details ||
-                                "Unknown error."
-                            )}
-
-                        `;
-
-                    }
+                    `;
 
                 } catch (error) {
 
                     console.error(
-                        "❌ Audit request failed:",
+                        "Audit request failed:",
                         error
                     );
 
+                    resultsElement.innerHTML = `
 
-                    if (resultsElement) {
+                        🔴
+                        <strong>
+                            Unable to complete audit.
+                        </strong>
 
-                        resultsElement.innerHTML = `
+                        <br><br>
 
-                            🔴
-                            <strong>
-                                Unable to complete audit.
-                            </strong>
+                        ${escapeHtml(
+                            error.message ||
+                            "Network error."
+                        )}
 
-                            <br><br>
-
-                            ${escapeHtml(
-                                error.message ||
-                                "Network error."
-                            )}
-
-                        `;
-
-                    }
+                    `;
 
                 } finally {
 
-                    auditButton.disabled =
-                        false;
+                    auditButton.disabled = false;
 
                 }
 
             }
         );
 
-    } else {
-
-        console.warn(
-            "⚠️ #auditButton was not found."
-        );
-
     }
 
 
     // ==========================================
-    // INITIALIZE DASHBOARD
+    // Initialize Dashboard
     // ==========================================
-
-    console.log(
-        "🚀 Auditly Pro dashboard initializing..."
-    );
-
 
     checkServer();
 
     checkShopifyConnection();
 
     checkSubscriptionStatus();
-
 
 });
