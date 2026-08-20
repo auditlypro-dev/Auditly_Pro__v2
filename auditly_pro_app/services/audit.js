@@ -994,4 +994,771 @@ function auditPolicies(
 
         {
             type:
-            
+                "CONTACT_INFORMATION",
+
+            name:
+                "Contact Information"
+
+        },
+
+        {
+            type:
+                "LEGAL_NOTICE",
+
+            name:
+                "Legal Notice"
+
+        },
+
+        {
+            type:
+                "TERMS_OF_SALE",
+
+            name:
+                "Terms of Sale"
+
+        },
+
+        {
+            type:
+                "SUBSCRIPTION_POLICY",
+
+            name:
+                "Subscription/Cancellation Policy"
+
+        }
+
+    ];
+
+
+    for (
+        const optionalPolicy
+        of additionalPolicyTypes
+    ) {
+
+        const policy =
+            policies.find(
+                item =>
+                    item.type ===
+                    optionalPolicy.type
+            );
+
+
+        if (!policy) {
+
+            // These are NOT automatically treated
+            // as failures because requirements vary.
+            continue;
+
+        }
+
+
+        const bodyText =
+            normalizeText(
+                policy.body
+            );
+
+
+        if (
+            bodyText.length === 0
+        ) {
+
+    findings.push({
+
+                category:
+                    "Compliance",
+
+                severity:
+                    "warning",
+
+                policyType:
+                    optionalPolicy.type,
+
+                message:
+                    `${optionalPolicy.name} is configured but appears to contain no readable content.`
+
+            });
+
+        }
+
+    }
+
+
+    // ======================================
+    // Final policy score
+    // ======================================
+
+    points =
+        Math.round(
+            Math.max(
+                0,
+                Math.min(100, points)
+            )
+        );
+
+
+    return {
+
+        score:
+            points,
+
+        available:
+            true,
+
+        policiesFound,
+
+        policiesMissing,
+
+        policiesWithWeakContent,
+
+        findings
+
+    };
+
+}
+
+
+// ==========================================
+// Build Recommendations
+// ==========================================
+
+function buildRecommendations(
+    productAudit,
+    policyAudit
+) {
+
+    const recommendations = [];
+
+
+    // ======================================
+    // Compliance Recommendations
+    // ======================================
+
+    if (
+        policyAudit.available
+    ) {
+
+        if (
+            policyAudit.policiesMissing > 0
+        ) {
+
+            recommendations.push({
+
+                priority:
+                    "High",
+
+                category:
+                    "Compliance",
+
+                recommendation:
+                    "Review missing store policies and publish the policies applicable to your business, products, and jurisdiction."
+
+            });
+
+        }
+
+
+        if (
+            policyAudit.policiesWithWeakContent > 0
+        ) {
+
+            recommendations.push({
+
+                priority:
+                    "High",
+
+                category:
+                    "Compliance",
+
+                recommendation:
+                    "Review policies with empty or unusually short content and make sure they accurately explain the merchant's applicable terms and practices."
+
+            });
+
+        }
+
+    } else {
+
+        recommendations.push({
+
+            priority:
+                "Medium",
+
+            category:
+                "Compliance",
+
+            recommendation:
+                "Reauthorize Auditly Pro with legal-policy access so the compliance scanner can inspect the store's configured policies."
+
+        });
+
+    }
+
+
+    // ======================================
+    // Product Title
+    // ======================================
+
+    if (
+        productAudit.productsWithoutTitles > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "High",
+
+            category:
+                "SEO",
+
+            recommendation:
+                "Add clear, descriptive titles to products that are missing titles."
+
+        });
+
+    }
+
+
+    // ======================================
+    // Product descriptions
+    // ======================================
+
+    if (
+        productAudit.productsWithoutDescriptions > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "High",
+
+            category:
+                "Content",
+
+            recommendation:
+                "Add detailed product descriptions that accurately explain the product's features, benefits, specifications, and intended use."
+
+        });
+
+    }
+
+
+    if (
+        productAudit.productsWithShortDescriptions > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "Medium",
+
+            category:
+                "Content",
+
+            recommendation:
+                "Expand unusually short product descriptions with useful, accurate information that helps shoppers understand the product."
+
+        });
+
+    }
+
+
+    // ======================================
+    // Images
+    // ======================================
+
+    if (
+        productAudit.productsWithoutImages > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "High",
+
+            category:
+                "Store Optimization",
+
+            recommendation:
+                "Add high-quality product images to products that currently have no images."
+
+        });
+
+    }
+
+
+    // ======================================
+    // Alt text
+    // ======================================
+
+    if (
+        productAudit.productsWithoutAltText > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "Medium",
+
+            category:
+                "Accessibility",
+
+            recommendation:
+                "Add accurate, descriptive alt text to product images to improve accessibility and image SEO."
+
+        });
+
+    }
+
+
+    // ======================================
+    // SEO metadata
+    // ======================================
+
+    if (
+        productAudit.productsWithoutSEOTitle > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "High",
+
+            category:
+                "SEO",
+
+            recommendation:
+                "Add unique, descriptive SEO titles to products that are missing them."
+
+        });
+
+    }
+
+
+    if (
+        productAudit.productsWithoutSEODescription > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "High",
+
+            category:
+                "SEO",
+
+            recommendation:
+                "Add useful meta descriptions to products that are missing them."
+
+        });
+
+    }
+
+
+    if (
+        productAudit.productsWithShortSEODescription > 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "Medium",
+
+            category:
+                "SEO",
+
+            recommendation:
+                "Review very short product meta descriptions and expand them with accurate, compelling search-result copy."
+
+        });
+
+    }
+
+
+    // ======================================
+    // No recommendations
+    // ======================================
+
+    if (
+        recommendations.length === 0
+    ) {
+
+        recommendations.push({
+
+            priority:
+                "Low",
+
+            category:
+                "Optimization",
+
+            recommendation:
+                "No major issues were detected in the areas currently audited. Continue monitoring your store for new compliance, SEO, accessibility, and optimization opportunities."
+
+        });
+
+    }
+
+
+    return recommendations;
+
+}
+
+
+// ==========================================
+// Calculate Overall Score
+// ==========================================
+
+function calculateOverallScore(
+    productAudit,
+    policyAudit
+) {
+
+    const scores = [];
+
+
+    if (
+        typeof productAudit.score === "number"
+    ) {
+
+        scores.push(
+            productAudit.score
+        );
+
+    }
+
+
+    if (
+        policyAudit.available &&
+        typeof policyAudit.score === "number"
+    ) {
+
+        scores.push(
+            policyAudit.score
+        );
+
+    }
+
+
+    if (
+        scores.length === 0
+    ) {
+
+        return 0;
+
+    }
+
+
+    const total =
+        scores.reduce(
+            (
+                sum,
+                value
+            ) =>
+                sum + value,
+            0
+        );
+
+
+    return Math.round(
+        total / scores.length
+    );
+
+}
+
+
+// ==========================================
+// Overall Audit
+// ==========================================
+
+async function runAudit(
+    shop,
+    accessToken
+) {
+
+    console.log(
+        "🚀 STARTING STORE AUDIT:",
+        shop
+    );
+
+
+    // ======================================
+    // Retrieve Shopify products
+    // ======================================
+
+const products =
+        await getProducts(
+            shop,
+            accessToken
+        );
+
+
+    console.log(
+        `📦 Retrieved ${products.length} products`
+    );
+
+
+    // ======================================
+    // Retrieve store policies
+    // ======================================
+
+    const policyResult =
+        await getShopPolicies(
+            shop,
+            accessToken
+        );
+
+
+    if (
+        policyResult.available
+    ) {
+
+        console.log(
+            `📜 Retrieved ${policyResult.policies.length} store policies`
+        );
+
+    } else {
+
+        console.warn(
+            "⚠️ Store policy audit unavailable."
+        );
+
+    }
+
+
+    // ======================================
+    // Audit products
+    // ======================================
+
+    const productAudit =
+        auditProducts(
+            products
+        );
+
+
+    // ======================================
+    // Audit policies
+    // ======================================
+
+    const policyAudit =
+        auditPolicies(
+            policyResult
+        );
+
+
+    // ======================================
+    // Recommendations
+    // ======================================
+
+    const recommendations =
+        buildRecommendations(
+            productAudit,
+            policyAudit
+        );
+
+
+    // ======================================
+    // Overall score
+    // ======================================
+
+    const score =
+        calculateOverallScore(
+            productAudit,
+            policyAudit
+        );
+
+
+    let rating;
+
+
+    if (
+        score >= 90
+    ) {
+
+        rating =
+            "Excellent";
+
+    } else if (
+        score >= 80
+    ) {
+
+        rating =
+            "Good";
+
+    } else if (
+        score >= 70
+    ) {
+
+        rating =
+            "Needs Improvement";
+
+    } else if (
+        score >= 50
+    ) {
+
+        rating =
+            "Poor";
+
+    } else {
+
+        rating =
+            "Critical";
+
+    }
+
+
+    console.log(
+        `✅ STORE AUDIT COMPLETE: ${score}/100`
+    );
+
+
+    // ======================================
+    // Combine findings
+    // ======================================
+
+    const findings = [
+
+        ...productAudit.findings,
+
+        ...policyAudit.findings
+
+    ];
+
+
+    // ======================================
+    // Return Audit
+    // ======================================
+
+    return {
+
+        success:
+            true,
+
+        shop,
+
+        auditDate:
+            new Date().toISOString(),
+
+        score,
+
+        rating,
+
+
+        // ====================================
+        // Summary
+        // ====================================
+
+        summary: {
+
+            totalProducts:
+                productAudit.totalProducts,
+
+            productsWithIssues:
+                productAudit.productsWithIssues,
+
+            policiesFound:
+                policyAudit.policiesFound,
+
+            policiesMissing:
+                policyAudit.policiesMissing,
+
+            complianceAuditAvailable:
+                policyAudit.available
+
+        },
+
+
+        // ====================================
+        // Category Scores
+        // ====================================
+
+        categories: {
+
+            products: {
+
+                score:
+                    productAudit.score,
+
+                totalProducts:
+                    productAudit.totalProducts,
+
+                productsWithIssues:
+                    productAudit.productsWithIssues
+
+            },
+
+
+            seo: {
+
+                score:
+                    productAudit.score,
+
+                productsWithoutSEOTitle:
+                    productAudit.productsWithoutSEOTitle,
+
+                productsWithoutSEODescription:
+                    productAudit.productsWithoutSEODescription,
+
+                productsWithShortSEODescription:
+                    productAudit.productsWithShortSEODescription
+
+            },
+
+
+            compliance: {
+
+                score:
+                    policyAudit.score,
+
+                available:
+                    policyAudit.available,
+
+                policiesFound:
+                    policyAudit.policiesFound,
+
+                policiesMissing:
+                    policyAudit.policiesMissing,
+
+                policiesWithWeakContent:
+                    policyAudit.policiesWithWeakContent
+
+            }
+
+        },
+
+
+        // ====================================
+        // Findings
+        // ====================================
+
+        findings,
+
+
+        // ====================================
+        // Recommendations
+        // =====================
+        
+        recommendations
+
+    };
+
+}
+
+
+// ==========================================
+// Export
+// ==========================================
+
+module.exports = {
+
+    runAudit,
+
+    getProducts,
+
+    getShopPolicies,
+
+    auditProducts,
+
+    auditPolicies
+
+};
+🛑 Stop after replacing
