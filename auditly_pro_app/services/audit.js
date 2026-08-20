@@ -165,6 +165,107 @@ async function getProducts(
 
 
 // ==========================================
+// Get Store Policies
+// ==========================================
+//
+// Shopify requires read_legal_policies for
+// this query.
+//
+// If the connected token does not yet have
+// this permission, the function returns a
+// graceful "unavailable" result instead of
+// breaking the entire store audit.
+// ==========================================
+
+async function getShopPolicies(
+    shop,
+    accessToken
+) {
+
+    const query = `
+        query GetShopPolicies {
+
+            shop {
+
+                shopPolicies {
+
+                    id
+                    type
+                    title
+                    body
+                    url
+                    createdAt
+                    updatedAt
+
+                }
+
+            }
+
+        }
+    `;
+
+    try {
+
+        const data =
+            await shopifyGraphQL(
+                shop,
+                accessToken,
+                query
+            );
+
+        return {
+
+            available: true,
+
+            policies:
+                data.data?.shop?.shopPolicies || []
+
+        };
+
+    } catch (error) {
+
+        console.warn(
+            "⚠️ Store policies could not be retrieved:",
+            error.message
+        );
+
+        return {
+
+            available: false,
+
+            policies: [],
+
+            error:
+                error.message
+
+        };
+
+    }
+
+}
+
+
+// ==========================================
+// Normalize Text
+// ==========================================
+
+function normalizeText(value) {
+
+    if (!value) {
+
+        return "";
+
+    }
+
+    return String(value)
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+}
+
+
+// ==========================================
 // Audit Products
 // ==========================================
 
@@ -182,7 +283,15 @@ function auditProducts(products) {
 
     let productsWithoutSEO = 0;
 
+    let productsWithoutSEOTitle = 0;
+
+    let productsWithoutSEODescription = 0;
+
+    let productsWithShortSEODescription = 0;
+
     let productsWithoutDescriptions = 0;
+
+    let productsWithShortDescriptions = 0;
 
     let productsWithoutTitles = 0;
 
@@ -191,36 +300,55 @@ function auditProducts(products) {
 
         const issues = [];
 
-        // --------------------------------------
+
+        // ======================================
         // Product title
-        // --------------------------------------
+        // ======================================
 
         if (
             !product.title ||
             product.title.trim().length === 0
         ) {
 
-            issues.push(
-                "Product is missing a title."
-            );
+            issues.push({
+
+                message:
+                    "Product is missing a title.",
+
+                severity:
+                    "high",
+
+                category:
+                    "Products"
+
+            });
 
             productsWithoutTitles++;
 
         }
 
 
-        // --------------------------------------
-        // Description
-        // --------------------------------------
+        // ======================================
+        // Product description
+        // ======================================
 
         if (
             !product.description ||
             product.description.trim().length === 0
         ) {
 
-            issues.push(
-                "Product is missing a description."
-            );
+            issues.push({
+
+                message:
+                    "Product is missing a description.",
+
+                severity:
+                    "high",
+
+                category:
+                    "Content"
+
+            });
 
             productsWithoutDescriptions++;
 
@@ -228,25 +356,46 @@ function auditProducts(products) {
             product.description.trim().length < 50
         ) {
 
-            issues.push(
-                "Product description is very short."
-            );
+            issues.push({
+
+                message:
+                    "Product description is very short.",
+
+                severity:
+                    "notice",
+
+                category:
+                    "Content"
+
+            });
+
+            productsWithShortDescriptions++;
 
         }
 
 
-        // --------------------------------------
-        // Images
-        // --------------------------------------
+        // ======================================
+        // Product images
+        // ======================================
 
         const images =
             product.images?.edges || [];
 
+
         if (images.length === 0) {
 
-            issues.push(
-                "Product has no images."
-            );
+            issues.push({
+
+                message:
+                    "Product has no images.",
+
+                severity:
+                    "high",
+
+                category:
+                    "Store Optimization"
+
+            });
 
             productsWithoutImages++;
 
@@ -259,13 +408,23 @@ function auditProducts(products) {
                         image.node.altText.trim() === ""
                 );
 
+
             if (
                 missingAltText.length > 0
             ) {
 
-                issues.push(
-                    `${missingAltText.length} product image(s) are missing alt text.`
-                );
+                issues.push({
+
+                    message:
+                        `${missingAltText.length} product image(s) are missing alt text.`,
+
+                    severity:
+                        "warning",
+
+                    category:
+                        "Accessibility"
+
+                });
 
                 productsWithoutAltText++;
 
@@ -274,49 +433,175 @@ function auditProducts(products) {
         }
 
 
-        // --------------------------------------
-        // SEO
-        // --------------------------------------
+        // ======================================
+        // Product SEO
+        // ======================================
 
         const seo =
             product.seo;
 
-        if (
-            !seo ||
-            (
-                !seo.title &&
-                !seo.description
-            )
-        ) {
 
-            issues.push(
-                "Product SEO metadata is missing."
-            );
+        if (!seo) {
+
+            issues.push({
+
+                message:
+                    "Product SEO metadata is unavailable.",
+
+                severity:
+                    "warning",
+
+                category:
+                    "SEO"
+
+            });
 
             productsWithoutSEO++;
+
+        } else {
+
+            const seoTitle =
+                seo.title
+                    ? seo.title.trim()
+                    : "";
+
+            const seoDescription =
+                seo.description
+                    ? seo.description.trim()
+                    : "";
+
+
+            // ----------------------------------
+            // SEO title
+            // ----------------------------------
+
+            if (!seoTitle) {
+
+                issues.push({
+
+                    message:
+                        "Product SEO title is missing.",
+
+                    severity:
+                        "warning",
+
+                    category:
+                        "SEO"
+
+                });
+
+                productsWithoutSEOTitle++;
+
+            } else if (
+                seoTitle.length > 70
+            ) {
+
+                issues.push({
+
+                    message:
+                        "Product SEO title may be too long for search-result display.",
+
+                    severity:
+                        "notice",
+
+                    category:
+                        "SEO"
+
+                });
+
+            }
+
+
+            // ----------------------------------
+            // Meta description
+            // ----------------------------------
+
+            if (!seoDescription) {
+
+                issues.push({
+
+                    message:
+                        "Product meta description is missing.",
+
+                    severity:
+                        "warning",
+
+                    category:
+                        "SEO"
+
+                });
+
+                productsWithoutSEODescription++;
+
+            } else if (
+                seoDescription.length < 50
+            ) {
+
+                issues.push({
+
+                    message:
+                        "Product meta description is very short.",
+
+                    severity:
+                        "notice",
+
+                    category:
+                        "SEO"
+
+                });
+
+                productsWithShortSEODescription++;
+
+            } else if (
+                seoDescription.length > 170
+            ) {
+
+                issues.push({
+
+                    message:
+                        "Product meta description may be too long for search-result display.",
+
+                    severity:
+                        "notice",
+
+                    category:
+                        "SEO"
+
+                });
+
+            }
 
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Inventory
-        // --------------------------------------
+        // ======================================
 
         if (
             typeof product.totalInventory === "number" &&
             product.totalInventory < 0
         ) {
 
-            issues.push(
-                "Product inventory appears invalid."
-            );
+            issues.push({
+
+                message:
+                    "Product inventory appears invalid.",
+
+                severity:
+                    "warning",
+
+                category:
+                    "Products"
+
+            });
 
         }
 
 
-        // --------------------------------------
+        // ======================================
         // Record product findings
-        // --------------------------------------
+        // ======================================
 
         if (issues.length > 0) {
 
@@ -326,12 +611,11 @@ function auditProducts(products) {
 
                 findings.push({
 
-                    category: "Products",
+                    category:
+                        issue.category || "Products",
 
                     severity:
-                        issue.includes("missing")
-                            ? "warning"
-                            : "notice",
+                        issue.severity,
 
                     productId:
                         product.id,
@@ -340,7 +624,7 @@ function auditProducts(products) {
                         product.title,
 
                     message:
-                        issue
+                        issue.message
 
                 });
 
@@ -370,17 +654,32 @@ function auditProducts(products) {
     points -=
         productsWithoutSEO * 3;
 
+    points -=
+        productsWithoutSEOTitle * 1;
+
+    points -=
+        productsWithoutSEODescription * 1;
+
+    points -=
+        productsWithShortSEODescription * 0.5;
+
+    points -=
+        productsWithShortDescriptions * 0.5;
+
 
     points =
-        Math.max(
-            0,
-            Math.min(100, points)
+        Math.round(
+            Math.max(
+                0,
+                Math.min(100, points)
+            )
         );
 
 
     return {
 
-        score: points,
+        score:
+            points,
 
         totalProducts:
             products.length,
@@ -391,11 +690,19 @@ function auditProducts(products) {
 
         productsWithoutDescriptions,
 
+        productsWithShortDescriptions,
+
         productsWithoutImages,
 
         productsWithoutAltText,
 
         productsWithoutSEO,
+
+        productsWithoutSEOTitle,
+
+        productsWithoutSEODescription,
+
+        productsWithShortSEODescription,
 
         findings
 
@@ -405,276 +712,286 @@ function auditProducts(products) {
 
 
 // ==========================================
-// Build Recommendations
+// Audit Store Policies
+// ==========================================
+//
+// These checks identify configured/missing
+// policies and basic content-quality signals.
+//
+// They do NOT claim that a store is legally
+// compliant. Legal requirements vary by
+// jurisdiction, business model, products,
+// and other circumstances.
 // ==========================================
 
-function buildRecommendations(
-    productAudit
+function auditPolicies(
+    policyResult
 ) {
 
-    const recommendations = [];
+    const findings = [];
 
+    let points = 100;
+
+    let policiesFound = 0;
+
+    let policiesMissing = 0;
+
+    let policiesWithWeakContent = 0;
+
+
+    // ======================================
+    // Permission unavailable
+    // ======================================
 
     if (
-        productAudit.productsWithoutTitles > 0
+        !policyResult.available
     ) {
 
-        recommendations.push({
+        findings.push({
 
-            priority: "High",
+            category:
+                "Compliance",
 
-            category: "SEO",
+            severity:
+                "notice",
 
-            recommendation:
-                "Add clear, descriptive titles to products that are missing titles."
+            message:
+                "Auditly Pro could not inspect the store's legal policies with the currently authorized Shopify access token. Reauthorization may be required to complete the compliance scan."
 
         });
 
-    }
 
+        return {
 
-    if (
-        productAudit.productsWithoutDescriptions > 0
-    ) {
+            score:
+                null,
 
-        recommendations.push({
+            available:
+                false,
 
-            priority: "High",
+            policiesFound:
+                0,
 
-            category: "Content",
+            policiesMissing:
+                0,
 
-            recommendation:
-                "Add detailed product descriptions that explain the product's benefits, features, and use cases."
+            policiesWithWeakContent:
+                0,
 
-        });
+            findings
 
-    }
-
-
-    if (
-        productAudit.productsWithoutImages > 0
-    ) {
-
-        recommendations.push({
-
-            priority: "High",
-
-            category: "Store Optimization",
-
-            recommendation:
-                "Add high-quality product images to products that currently have no images."
-
-        });
+        };
 
     }
 
 
-    if (
-        productAudit.productsWithoutAltText > 0
-    ) {
-
-        recommendations.push({
-
-            priority: "Medium",
-
-            category: "Accessibility",
-
-            recommendation:
-                "Add descriptive alt text to product images to improve accessibility and image SEO."
-
-        });
-
-    }
-
-
-    if (
-        productAudit.productsWithoutSEO > 0
-    ) {
-
-        recommendations.push({
-
-            priority: "High",
-
-            category: "SEO",
-
-            recommendation:
-                "Add SEO titles and meta descriptions to products that are missing SEO metadata."
-
-        });
-
-    }
-
-
-    if (
-        recommendations.length === 0
-    ) {
-
-        recommendations.push({
-
-            priority: "Low",
-
-            category: "Optimization",
-
-            recommendation:
-                "No major product issues were detected. Continue monitoring your store for optimization opportunities."
-
-        });
-
-    }
-
-
-    return recommendations;
-
-}
-
-
-// ==========================================
-// Overall Audit
-// ==========================================
-
-async function runAudit(
-    shop,
-    accessToken
-) {
-
-    console.log(
-        "🚀 STARTING STORE AUDIT:",
-        shop
-    );
+    const policies =
+        policyResult.policies || [];
 
 
     // ======================================
-    // Retrieve Shopify products
+    // Required policy types for this audit
     // ======================================
 
-    const products =
-        await getProducts(
-            shop,
-            accessToken
-        );
+    const requiredPolicies = [
 
+        {
+            type:
+                "PRIVACY_POLICY",
 
-    console.log(
-        `📦 Retrieved ${products.length} products`
-    );
-
-
-    // ======================================
-    // Audit products
-    // ======================================
-
-    const productAudit =
-        auditProducts(products);
-
-
-    // ======================================
-    // Recommendations
-    // ======================================
-
-    const recommendations =
-        buildRecommendations(
-            productAudit
-        );
-
-
-    // ======================================
-    // Overall score
-    // ======================================
-
-    const score =
-        productAudit.score;
-
-
-    let rating;
-
-    if (score >= 90) {
-
-        rating = "Excellent";
-
-    } else if (score >= 80) {
-
-        rating = "Good";
-
-    } else if (score >= 70) {
-
-        rating = "Needs Improvement";
-
-    } else if (score >= 50) {
-
-        rating = "Poor";
-
-    } else {
-
-        rating = "Critical";
-
-    }
-
-
-    console.log(
-        `✅ STORE AUDIT COMPLETE: ${score}/100`
-    );
-
-
-    return {
-
-        success: true,
-
-        shop,
-
-        auditDate:
-            new Date().toISOString(),
-
-        score,
-
-        rating,
-
-        summary: {
-
-            totalProducts:
-                productAudit.totalProducts,
-
-            productsWithIssues:
-                productAudit.productsWithIssues
+            name:
+                "Privacy Policy"
 
         },
 
-        categories: {
+        {
+            type:
+                "REFUND_POLICY",
 
-            products: {
-
-                score:
-                    productAudit.score,
-
-                totalProducts:
-                    productAudit.totalProducts,
-
-                productsWithIssues:
-                    productAudit.productsWithIssues
-
-            }
+            name:
+                "Refund Policy"
 
         },
 
-        findings:
-            productAudit.findings,
+        {
+            type:
+                "SHIPPING_POLICY",
 
-        recommendations
+            name:
+                "Shipping Policy"
 
-    };
+        },
 
-}
+        {
+            type:
+                "TERMS_OF_SERVICE",
+
+            name:
+                "Terms of Service"
+
+        }
+
+    ];
 
 
-// ==========================================
-// Export
-// ==========================================
+    // ======================================
+    // Check each policy
+    // ======================================
 
-module.exports = {
+    for (
+        const requiredPolicy
+        of requiredPolicies
+    ) {
 
-    runAudit,
+        const policy =
+            policies.find(
+                item =>
+                    item.type ===
+                    requiredPolicy.type
+            );
 
-    getProducts,
 
-    auditProducts
+        // ----------------------------------
+        // Missing policy
+        // ----------------------------------
 
-};
+        if (!policy) {
+
+            policiesMissing++;
+
+            points -= 12;
+
+            findings.push({
+
+                category:
+                    "Compliance",
+
+                severity:
+                    "high",
+
+                policyType:
+                    requiredPolicy.type,
+
+                message:
+                    `${requiredPolicy.name} was not found in the store policies returned by Shopify. Review whether this policy is required for your business and jurisdiction.`
+
+            });
+
+            continue;
+
+        }
+
+
+        policiesFound++;
+
+
+        // ----------------------------------
+        // Empty policy body
+        // ----------------------------------
+
+        const bodyText =
+            normalizeText(
+                policy.body
+            );
+
+
+        if (
+            bodyText.length === 0
+        ) {
+
+            policiesWithWeakContent++;
+
+            points -= 8;
+
+            findings.push({
+
+                category:
+                    "Compliance",
+
+                severity:
+                    "high",
+
+                policyType:
+                    requiredPolicy.type,
+
+                message:
+                    `${requiredPolicy.name} exists but appears to have no readable policy content.`
+
+            });
+
+            continue;
+
+        }
+
+
+        // ----------------------------------
+        // Very short policy
+        // ----------------------------------
+
+        if (
+            bodyText.length < 100
+        ) {
+
+            policiesWithWeakContent++;
+
+            points -= 4;
+
+            findings.push({
+
+                category:
+                    "Compliance",
+
+                severity:
+                    "warning",
+
+                policyType:
+                    requiredPolicy.type,
+
+                message:
+                    `${requiredPolicy.name} contains very little text. Review it to make sure it adequately explains the store's applicable terms and practices.`
+
+            });
+
+        }
+
+
+        // ----------------------------------
+        // Policy URL
+        // ----------------------------------
+
+        if (
+            !policy.url
+        ) {
+
+            points -= 2;
+
+            findings.push({
+
+                category:
+                    "Compliance",
+
+                severity:
+                    "warning",
+
+                policyType:
+                    requiredPolicy.type,
+
+                message:
+                    `${requiredPolicy.name} does not have a public policy URL returned by Shopify.`
+
+            });
+
+        }
+
+    }
+
+
+    // ======================================
+    // Additional policy types
+    // ======================================
+
+    const additionalPolicyTypes = [
+
+        {
+            type:
+            
