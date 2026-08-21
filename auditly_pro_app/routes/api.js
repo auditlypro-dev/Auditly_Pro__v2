@@ -761,7 +761,196 @@ router.post(
 
     }
 );
+// ==================================================
+// SHOPIFY GRANTED SCOPES
+// GET /api/shopify/scopes?shop=...
+// ==================================================
 
+router.get(
+    "/shopify/scopes",
+    async (req, res) => {
+
+        try {
+
+            const shop =
+                req.query.shop;
+
+
+            if (!shop) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "Missing shop parameter"
+
+                    });
+
+            }
+
+
+            console.log(
+                "🔐 Checking Shopify granted scopes for:",
+                shop
+            );
+
+
+            // ------------------------------------------
+            // Find shop in Supabase
+            // ------------------------------------------
+
+            const shopRecord =
+                await getShopRecord(
+                    shop
+                );
+
+
+            if (!shopRecord) {
+
+                return res
+                    .status(404)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "Shop not found",
+
+                        shop
+
+                    });
+
+            }
+
+
+            // ------------------------------------------
+            // Get valid access token
+            // ------------------------------------------
+
+            const accessToken =
+                await getValidAccessToken(
+                    shop,
+                    shopRecord
+                );
+
+
+            // ------------------------------------------
+            // Ask Shopify for granted scopes
+            // ------------------------------------------
+
+            const query = `
+
+                query {
+
+                    currentAppInstallation {
+
+                        accessScopes {
+
+                            handle
+                            description
+
+                        }
+
+                    }
+
+                }
+
+            `;
+
+
+            const shopifyData =
+                await shopifyGraphQL(
+                    shop,
+                    accessToken,
+                    query
+                );
+
+
+            const accessScopes =
+                shopifyData
+                    .data
+                    ?.currentAppInstallation
+                    ?.accessScopes || [];
+
+
+            const scopeHandles =
+                accessScopes.map(
+                    scope =>
+                        scope.handle
+                );
+
+
+            const hasLegalPolicyAccess =
+                scopeHandles.includes(
+                    "read_legal_policies"
+                );
+
+
+            console.log(
+                "🔐 Shopify granted scopes:",
+                scopeHandles
+            );
+
+
+            console.log(
+                "📜 read_legal_policies:",
+                hasLegalPolicyAccess
+                    ? "YES"
+                    : "NO"
+            );
+
+
+            // ------------------------------------------
+            // Return diagnostic result
+            // ------------------------------------------
+
+            return res.json({
+
+                success: true,
+
+                shop,
+
+                readLegalPolicies:
+                    hasLegalPolicyAccess,
+
+                totalScopes:
+                    accessScopes.length,
+
+                scopes:
+                    accessScopes
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "❌ Shopify scope check failed:",
+                error
+            );
+
+
+            return res
+                .status(500)
+                .json({
+
+                    success: false,
+
+                    error:
+                        "Unable to retrieve Shopify granted scopes",
+
+                    details:
+                        error.message
+
+                });
+
+        }
+
+    }
+);
 
 // ==================================================
 // DEBUG
