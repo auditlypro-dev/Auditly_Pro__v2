@@ -10,11 +10,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // CONFIGURATION
+    // SHOP IDENTIFICATION
     // ==========================================
 
-    const DEFAULT_SHOP =
+    // First try to get the shop from the URL.
+    // Example:
+    // /dashboard?shop=auditly-pro-app.myshopify.com
+
+    const urlParams =
+        new URLSearchParams(window.location.search);
+
+    const urlShop =
+        urlParams.get("shop");
+
+
+    // Temporary fallback for your test Shopify store.
+    // This allows us to verify the dashboard connection.
+    const shop =
+        urlShop ||
         "auditly-pro-app.myshopify.com";
+
+
+    console.log(
+        "🏪 Dashboard shop:",
+        shop
+    );
 
 
     // ==========================================
@@ -49,14 +69,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // CURRENT SHOP
-    // ==========================================
-
-    let currentShop =
-        DEFAULT_SHOP;
-
-
-    // ==========================================
     // ESCAPE HTML
     // ==========================================
 
@@ -73,39 +85,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // GET SHOP FROM URL IF AVAILABLE
-    // ==========================================
-
-    function getShopFromUrl() {
-
-        const params =
-            new URLSearchParams(
-                window.location.search
-            );
-
-        const shop =
-            params.get("shop");
-
-        if (
-            shop &&
-            shop.endsWith(".myshopify.com")
-        ) {
-
-            console.log(
-                "🏪 Shop found in URL:",
-                shop
-            );
-
-            return shop;
-
-        }
-
-        return DEFAULT_SHOP;
-
-    }
-
-
-    // ==========================================
     // CHECK SERVER
     // ==========================================
 
@@ -115,10 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const response =
                 await fetch(
-                    "/dashboard/health",
-                    {
-                        cache: "no-store"
-                    }
+                    "/dashboard/health"
                 );
 
             const data =
@@ -174,7 +150,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // ==========================================
-    // GET SHOPIFY STORE
+    // CHECK SHOPIFY CONNECTION
     // ==========================================
 
     async function checkShopifyConnection() {
@@ -182,10 +158,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!shopStatusElement) {
 
             console.error(
-                "❌ shopStatus element not found."
+                "❌ shopStatus element was not found."
             );
 
-            return false;
+            return;
 
         }
 
@@ -196,42 +172,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
 
-            const shop =
-                getShopFromUrl();
-
-            currentShop =
-                shop;
-
-
-            const url =
-                `/api/store?shop=${encodeURIComponent(
-                    currentShop
-                )}`;
+            const apiUrl =
+                `/api/store?shop=${encodeURIComponent(shop)}`;
 
 
             console.log(
-                "🏪 Checking Shopify store:",
-                currentShop
-            );
-
-            console.log(
-                "🌐 Store API:",
-                url
+                "🔎 Checking Shopify store:",
+                apiUrl
             );
 
 
             const response =
-                await fetch(
-                    url,
-                    {
-                        method: "GET",
-                        cache: "no-store",
-                        headers: {
-                            "Accept":
-                                "application/json"
-                        }
-                    }
-                );
+                await fetch(apiUrl);
 
 
             const data =
@@ -239,13 +191,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
             console.log(
-                "🏪 Shopify store response:",
+                "🏪 Shopify connection response:",
                 data
             );
 
 
             // ======================================
-            // STORE SUCCESS
+            // SUCCESS
             // ======================================
 
             if (
@@ -258,17 +210,19 @@ document.addEventListener("DOMContentLoaded", () => {
                     data.shop;
 
 
-                // Use the actual Shopify domain
-                // returned by the server.
+                const storeName =
+                    store.name ||
+                    "Shopify Store";
 
-                if (
-                    store.myshopifyDomain
-                ) {
 
-                    currentShop =
-                        store.myshopifyDomain;
+                const storeDomain =
+                    store.myshopifyDomain ||
+                    shop;
 
-                }
+
+                const currency =
+                    store.currencyCode ||
+                    "USD";
 
 
                 shopStatusElement.innerHTML = `
@@ -284,24 +238,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         <strong>
                             ${escapeHtml(
-                                store.name ||
-                                "Auditly Pro App"
+                                storeName
                             )}
                         </strong>
 
                         <br>
 
                         ${escapeHtml(
-                            store.myshopifyDomain ||
-                            currentShop
+                            storeDomain
                         )}
 
                         <br><br>
 
                         Currency:
                         ${escapeHtml(
-                            store.currencyCode ||
-                            "USD"
+                            currency
                         )}
 
                     </div>
@@ -310,22 +261,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
                 console.log(
-                    "✅ Shopify store confirmed:",
-                    currentShop
+                    "✅ Shopify store connected:",
+                    storeDomain
                 );
 
 
-                return true;
+                return;
 
             }
 
 
             // ======================================
-            // STORE NOT FOUND
+            // SHOP NOT FOUND
             // ======================================
 
-            console.warn(
-                "⚠️ Shopify store was not confirmed:",
+            if (
+                response.status === 404
+            ) {
+
+                console.warn(
+                    "⚠️ Shop was not found in Supabase:",
+                    shop
+                );
+
+
+                shopStatusElement.innerHTML = `
+
+                    🔴
+                    <strong>
+                        Shopify Store Not Connected
+                    </strong>
+
+                    <br><br>
+
+                    Auditly Pro could not find this
+                    Shopify store in its database.
+
+                    <br><br>
+
+                    <a
+                        href="/auth/install?shop=${encodeURIComponent(shop)}"
+                    >
+                        Connect Shopify Store
+                    </a>
+
+                `;
+
+
+                return;
+
+            }
+
+
+            // ======================================
+            // OTHER API ERROR
+            // ======================================
+
+            console.error(
+                "❌ Shopify API returned an error:",
                 data
             );
 
@@ -334,34 +327,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 🔴
                 <strong>
-                    Shopify Store Not Connected
+                    Unable to verify Shopify connection
                 </strong>
 
                 <br><br>
 
-                Auditly Pro needs to know which
-                Shopify store you are using.
-
-                <br><br>
-
-                <a
-                    href="/auth/install?shop=${encodeURIComponent(
-                        currentShop
-                    )}"
-                >
-                    Connect Shopify Store
-                </a>
+                ${escapeHtml(
+                    data.error ||
+                    data.message ||
+                    data.details ||
+                    "Unknown server error."
+                )}
 
             `;
-
-
-            return false;
 
 
         } catch (error) {
 
             console.error(
-                "❌ Shopify connection check failed:",
+                "❌ Shopify connection request failed:",
                 error
             );
 
@@ -370,20 +354,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 🔴
                 <strong>
-                    Unable to check Shopify connection.
+                    Unable to check Shopify connection
                 </strong>
 
                 <br><br>
 
                 ${escapeHtml(
                     error.message ||
-                    "Unknown connection error."
+                    "Network error."
                 )}
 
             `;
-
-
-            return false;
 
         }
 
@@ -398,6 +379,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!billingStatusElement) {
 
+            console.log(
+                "ℹ️ Billing status element not found."
+            );
+
             return;
 
         }
@@ -411,12 +396,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const response =
                 await fetch(
-                    `/billing/status?shop=${encodeURIComponent(
-                        currentShop
-                    )}`,
-                    {
-                        cache: "no-store"
-                    }
+                    `/billing/status?shop=${encodeURIComponent(shop)}`
                 );
 
 
@@ -425,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
             console.log(
-                "💳 Billing status:",
+                "💳 Billing status response:",
                 data
             );
 
@@ -481,18 +461,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
 
 
-            } else {
-
-                billingStatusElement.innerHTML = `
-
-                    🟡
-                    <strong>
-                        Subscription status unavailable
-                    </strong>
-
-                `;
+                return;
 
             }
+
+
+            billingStatusElement.innerHTML = `
+
+                🟡
+                <strong>
+                    Subscription status unavailable
+                </strong>
+
+            `;
 
 
         } catch (error) {
@@ -566,9 +547,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     const response =
                         await fetch(
-                            `/billing/upgrade?shop=${encodeURIComponent(
-                                currentShop
-                            )}`,
+                            `/billing/upgrade?shop=${encodeURIComponent(shop)}`,
                             {
 
                                 method:
@@ -577,17 +556,13 @@ document.addEventListener("DOMContentLoaded", () => {
                                 headers: {
 
                                     "Content-Type":
-                                        "application/json",
-
-                                    "Accept":
                                         "application/json"
 
                                 },
 
                                 body:
                                     JSON.stringify({
-                                        shop:
-                                            currentShop
+                                        shop: shop
                                     })
 
                             }
@@ -603,10 +578,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         data
                     );
 
-
-                    // ==================================
-                    // SUCCESS — GO TO SHOPIFY
-                    // ==================================
 
                     if (
                         response.ok &&
@@ -627,9 +598,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                                     <br><br>
 
-                                    Redirecting you to
-                                    Shopify to approve
-                                    the subscription...
+                                    Redirecting you to Shopify
+                                    to approve the subscription...
 
                                 </div>
 
@@ -646,43 +616,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     }
 
-
-                    // ==================================
-                    // ALREADY SUBSCRIBED
-                    // ==================================
-
-                    if (
-                        response.ok &&
-                        data.success &&
-                        data.alreadySubscribed
-                    ) {
-
-                        if (billingMessageElement) {
-
-                            billingMessageElement.innerHTML = `
-
-                                🟢
-                                <strong>
-                                    Auditly Pro is already active.
-                                </strong>
-
-                            `;
-
-                        }
-
-
-                        upgradeButton.innerHTML =
-                            "✅ Auditly Pro Active";
-
-
-                        return;
-
-                    }
-
-
-                    // ==================================
-                    // ERROR
-                    // ==================================
 
                     const errorMessage =
                         data.error ||
@@ -727,7 +660,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     upgradeButton.innerHTML =
                         "🚀 Start 7-Day Free Trial";
-
 
                 } catch (error) {
 
@@ -774,6 +706,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         );
 
+    } else {
+
+        console.error(
+            "❌ upgradeButton was not found in dashboard.html"
+        );
+
     }
 
 
@@ -781,10 +719,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // RENDER FINDINGS
     // ==========================================
 
-    
     function renderFindings(findings) {
 
-        if (!findings.length) {
+        if (!Array.isArray(findings) ||
+            findings.length === 0) {
 
             return `
 
@@ -876,7 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                         recommendation
                                     )}
 
-                                  `
+                                `
                                 : ""
                         }
 
@@ -898,7 +836,76 @@ document.addEventListener("DOMContentLoaded", () => {
         recommendations
     ) {
 
-        if (!recommendations.length) {
+        if (
+            !Array.isArray(recommendations) ||
+            recommendations.length === 0
+        ) {
+
+            return `
+
+                <p>
+                    No additional recommendations available.
+                </p>
+
+            `;
+
+        }
+
+
+        return recommendations.map(
+            recommendation => {
+
+                return `
+
+                    <div style="
+                        margin-bottom:15px;
+                        padding:15px;
+                        border:1px solid #ddd;
+                        border-radius:8px;
+                    ">
+
+                        <strong>
+                            ${escapeHtml(
+                                recommendation.priority ||
+                                "General"
+                            )}
+                        </strong>
+
+                        <br><br>
+
+                        <strong>
+                            ${escapeHtml(
+                                recommendation.category ||
+                                "Optimization"
+                            )}
+                        </strong>
+
+                        <br><br>
+
+                        ${escapeHtml(
+                            recommendation.recommendation ||
+                            ""
+                        )}
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+    }
+
+
+    // ============
+            function renderRecommendations(
+        recommendations
+    ) {
+
+        if (
+            !Array.isArray(recommendations) ||
+            recommendations.length === 0
+        ) {
 
             return `
 
@@ -969,11 +976,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
 
+        const scoreNumber =
+            Number(data.score);
+
+
         const score =
-            Number.isFinite(
-                Number(data.score)
-            )
-                ? Number(data.score)
+            Number.isFinite(scoreNumber)
+                ? scoreNumber
                 : null;
 
 
@@ -983,21 +992,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
         const summary =
-            data.summary ||
-            {};
+            data.summary || {};
 
 
         const totalProducts =
             Number(
-                summary.totalProducts ||
-                0
+                summary.totalProducts || 0
             );
 
 
         const productsWithIssues =
             Number(
-                summary.productsWithIssues ||
-                0
+                summary.productsWithIssues || 0
             );
 
 
@@ -1104,7 +1110,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     ${escapeHtml(
                         data.shop ||
-                        currentShop
+                        shop
                     )}
 
                     <br><br>
@@ -1213,9 +1219,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     const response =
                         await fetch(
-                            `/api/audit?shop=${encodeURIComponent(
-                                currentShop
-                            )}`,
+                            `/api/audit?shop=${encodeURIComponent(shop)}`,
                             {
 
                                 method:
@@ -1224,9 +1228,6 @@ document.addEventListener("DOMContentLoaded", () => {
                                 headers: {
 
                                     "Content-Type":
-                                        "application/json",
-
-                                    "Accept":
                                         "application/json"
 
                                 }
@@ -1250,9 +1251,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         data.success
                     ) {
 
-                        renderAuditResults(
-                            data
-                        );
+                        renderAuditResults(data);
 
                         return;
 
@@ -1280,7 +1279,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         `;
 
                     }
-
 
                 } catch (error) {
 
@@ -1320,12 +1318,6 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         );
 
-    } else {
-
-        console.warn(
-            "⚠️ auditButton was not found."
-        );
-
     }
 
 
@@ -1333,56 +1325,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // INITIALIZE DASHBOARD
     // ==========================================
 
-    async function initializeDashboard() {
-
-        console.log(
-            "🚀 Initializing Auditly Pro dashboard..."
-        );
+    console.log(
+        "🚀 Initializing Auditly Pro dashboard..."
+    );
 
 
-        currentShop =
-            getShopFromUrl();
+    checkServer();
 
+    checkShopifyConnection();
 
-        await checkServer();
+    checkBillingStatus();
 
-
-        const connected =
-            await checkShopifyConnection();
-
-
-        if (connected) {
-
-            console.log(
-                "✅ Store connection confirmed."
-            );
-
-            await checkBillingStatus();
-
-        } else {
-
-            console.warn(
-                "⚠️ Store connection was not confirmed."
-            );
-
-            if (billingStatusElement) {
-
-                billingStatusElement.innerHTML = `
-
-                    🟡
-                    <strong>
-                        Connect your Shopify store first.
-                    </strong>
-
-                `;
-
-            }
-
-        }
-
-    }
-
-
-    initializeDashboard();
-
-});
+});              
