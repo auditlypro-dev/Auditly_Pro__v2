@@ -26,6 +26,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+
+// ==========================================
+// Auditly Pro App Home
+// GET /
+// ==========================================
+
+app.get("/", (req, res) => {
+
+    res.sendFile(
+        path.join(
+            __dirname,
+            "views/dashboard.html"
+        )
+    );
+
+});
+
+
 // ==========================================
 // Routes
 // ==========================================
@@ -35,17 +53,7 @@ app.use("/dashboard", dashboardRoutes);
 app.use("/api", apiRoutes);
 app.use("/billing", billingRoutes);
 
-// ==========================================
-// Health Check
-// ==========================================
 
-app.get("/", (req, res) => {
-    res.send(`
-        <h1>🚀 Auditly Pro v2 Running</h1>
-        <p>AI-Powered Shopify Compliance & Optimization Platform</p>
-        <p>Status: Online</p>
-    `);
-});
 
 // ==========================================
 // Start Server
