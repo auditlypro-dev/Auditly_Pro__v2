@@ -51,9 +51,7 @@
         </h2>
 
         <div id="status">
-
             Checking server...
-
         </div>
 
     </section>
@@ -70,25 +68,24 @@
             Shopify Store Connection
         </h2>
 
-
         <div id="shopStatus">
-
             Checking Shopify connection...
-
         </div>
-
 
         <br>
 
+        <!--
+            IMPORTANT:
+            dashboard.js supplies the actual shop.
+            We do NOT hardcode a Shopify store here.
+        -->
 
-        <a
+        <button
             id="connectShop"
-            href="/auth/install?shop=auditly-pro-app.myshopify.com"
+            type="button"
         >
-
-            Connect Shopify Store
-
-        </a>
+            🔗 Connect Shopify Store
+        </button>
 
     </section>
 
@@ -107,16 +104,11 @@
             💳 Auditly Pro Subscription
         </h2>
 
-
         <div id="billingStatus">
-
             Checking subscription status...
-
         </div>
 
-
         <br>
-
 
         <div
             id="billingPlan"
@@ -147,13 +139,10 @@
                 id="upgradeButton"
                 type="button"
             >
-
                 🚀 Start 7-Day Free Trial
-
             </button>
 
         </div>
-
 
         <div
             id="billingMessage"
@@ -176,22 +165,17 @@
             Store Audit
         </h2>
 
-
         <p>
-
             Analyze your Shopify store for compliance,
             SEO, optimization, and improvement opportunities.
-
         </p>
-
 
         <button
             id="auditButton"
             type="button"
+            disabled
         >
-
-            Run Store Audit
-
+            🔍 Run Store Audit
         </button>
 
     </section>
@@ -208,11 +192,8 @@
             Audit Results
         </h2>
 
-
         <div id="results">
-
             No audit has been started.
-
         </div>
 
     </section>
@@ -225,17 +206,20 @@
 <footer>
 
     <p>
-
         © 2026 Auditly Pro
-
     </p>
 
 </footer>
 
 
 
+<!-- ==========================================
+     DASHBOARD JAVASCRIPT
+=========================================== -->
+
 <script
     src="/js/dashboard.js"
+    defer
 ></script>
 
 
