@@ -1052,9 +1052,7 @@ router.post(
             console.error(
                 "❌ BILLING UPGRADE ERROR:",
                 error
-
-
-                // ==================================================
+      // ==================================================
 // BILLING CALLBACK
 // ==================================================
 // Shopify returns the merchant here after approval.
