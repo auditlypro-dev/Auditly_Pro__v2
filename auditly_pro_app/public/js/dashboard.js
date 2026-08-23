@@ -531,7 +531,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     }
 
-    // ==========================================
+
+              // ==========================================
     // START 7-DAY FREE TRIAL
     // ==========================================
 
@@ -637,6 +638,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         data
                     );
 
+                    // ==================================
+                    // SHOPIFY APPROVAL PAGE
+                    // ==================================
+
                     if (
                         response.ok &&
                         data.success === true &&
@@ -672,6 +677,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     }
 
+                    // ==================================
+                    // ALREADY ACTIVE
+                    // ==================================
+
                     if (
                         response.ok &&
                         data.success === true &&
@@ -699,6 +708,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         return;
 
                     }
+
+                    // ==================================
+                    // BILLING ERROR
+                    // ==================================
 
                     const errorMessage =
                         data.error ||
@@ -789,7 +802,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // RENDER FINDINGS
     // ==========================================
-
 
     function renderFindings(findings) {
 
@@ -921,9 +933,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         ).join("");
 
-    }
+                                  }
 
-    // ==========================================
+
+              // ==========================================
     // RENDER AUDIT RESULTS
     // ==========================================
 
@@ -1259,13 +1272,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // ==========================================
     // CONNECT SHOPIFY STORE
     // ==========================================
-    //
-    // IMPORTANT:
-    // The connection link is handled directly by
-    // the browser. We do NOT use fetch() here.
-    //
-    // This allows Shopify OAuth to navigate normally.
-    // ==========================================
 
     const connectShop =
         document.getElementById("connectShop");
@@ -1300,8 +1306,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 }
 
-                // Allow the browser to perform the normal
-                // navigation to /auth/install.
+                // Allow normal browser navigation
+                // to the Shopify OAuth URL.
+
             }
         );
 
@@ -1327,5 +1334,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
     checkBillingStatus();
 
-});
-    
+});                
