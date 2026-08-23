@@ -22,10 +22,44 @@ const PORT = process.env.PORT || 10000;
 // ==========================================
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
 
+app.use(express.json());
+
+app.use(
+    express.urlencoded({
+        extended: true
+    })
+);
+
+app.use(
+    express.static(
+        path.join(__dirname, "public")
+    )
+);
+
+// ==========================================
+// Routes
+// ==========================================
+
+app.use(
+    "/auth",
+    authRoutes
+);
+
+app.use(
+    "/dashboard",
+    dashboardRoutes
+);
+
+app.use(
+    "/api",
+    apiRoutes
+);
+
+app.use(
+    "/billing",
+    billingRoutes
+);
 
 // ==========================================
 // Auditly Pro App Home
@@ -34,47 +68,39 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
 
-    res.sendFile(
-        path.join(
-            __dirname,
-            "views/dashboard.html"
-        )
+    const queryString =
+        req.originalUrl.includes("?")
+            ? req.originalUrl.substring(
+                req.originalUrl.indexOf("?")
+            )
+            : "";
+
+    res.redirect(
+        `/dashboard${queryString}`
     );
 
 });
 
-
-
 // ==========================================
 // Start Server
 // ==========================================
 
-app.listen(PORT, () => {
-    console.log("--------------------------------");
-    console.log("🚀 Auditly Pro v2 Server Started");
-    console.log("Port:", PORT);
-    console.log("--------------------------------");
-});
+app.listen(
+    PORT,
+    () => {
 
+        console.log("--------------------------------");
 
-// ==========================================
-// Routes
-// ==========================================
+        console.log(
+            "🚀 Auditly Pro v2 Server Started"
+        );
 
-app.use("/auth", authRoutes);
-app.use("/dashboard", dashboardRoutes);
-app.use("/api", apiRoutes);
-app.use("/billing", billingRoutes);
+        console.log(
+            "Port:",
+            PORT
+        );
 
+        console.log("--------------------------------");
 
-
-// ==========================================
-// Start Server
-// ==========================================
-
-app.listen(PORT, () => {
-    console.log("--------------------------------");
-    console.log("🚀 Auditly Pro v2 Server Started");
-    console.log("Port:", PORT);
-    console.log("--------------------------------");
-});
+    }
+);
