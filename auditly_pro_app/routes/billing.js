@@ -929,24 +929,81 @@ router.post(
 
             }
 
+            
+// ==================================================
+// CONFIRMATION URL
+// ==================================================
 
-            // ==================================================
-            // CONFIRMATION URL
-            // ==================================================
+            
+if (!result.confirmationUrl) {
 
-            if (
-                !result.confirmationUrl
-            ) {
+    return res
+        .status(500)
+        .json({
 
-                return res
-                    .status(500)
-                    .json({
+            success: false,
 
-                        success: false,
+            error:
+                "Shopify did not return a billing confirmation URL."
 
-                        error:
-                            "Shopify did not return a billing confirmation URL."
+        });
 
+}
+
+
+// ==================================================
+// LOG SUBSCRIPTION
+// ==================================================
+
+console.log(
+    "✅ AUDITLY PRO SUBSCRIPTION CREATED:",
+    result
+        .appSubscription
+        ?.id
+);
+
+console.log(
+    "🔗 SHOPIFY BILLING CONFIRMATION URL:",
+    result.confirmationUrl
+);
+
+
+// ==================================================
+// RETURN BILLING INFORMATION
+// ==================================================
+
+return res.json({
+
+    success: true,
+
+    active: false,
+
+    approvalRequired: true,
+
+    message:
+        "Please approve your Auditly Pro subscription in Shopify.",
+
+    plan:
+        PLAN_NAME,
+
+    price:
+        "$27/month",
+
+    trialDays:
+        TRIAL_DAYS,
+
+    interval:
+        PLAN_INTERVAL,
+
+    subscriptionId:
+        result
+            .appSubscription
+            ?.id,
+
+    confirmationUrl:
+        result.confirmationUrl
+
+});
                     });
 
             }
