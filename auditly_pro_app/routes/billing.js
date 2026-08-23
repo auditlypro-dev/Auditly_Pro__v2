@@ -450,7 +450,7 @@ async function shopifyGraphQL(
 
 
 // ==================================================
-// GET ACTIVE AUDITLY PRO SUBSCRIPTION
+// GET AUDITLY PRO SUBSCRIPTION
 // ==================================================
 
 async function getAuditlySubscription(
@@ -894,20 +894,24 @@ router.post(
                 "💳 CREATING SHOPIFY SUBSCRIPTION..."
             );
 
+
             console.log(
                 "💰 Plan:",
                 `$${PLAN_PRICE}/month`
             );
+
 
             console.log(
                 "🎁 Trial:",
                 `${TRIAL_DAYS} days`
             );
 
+
             console.log(
                 "🔁 Interval:",
                 PLAN_INTERVAL
             );
+
 
             console.log(
                 "↩️ Return URL:",
@@ -998,6 +1002,10 @@ router.post(
             }
 
 
+            // ==================================================
+            // SUCCESSFUL SUBSCRIPTION CREATION
+            // ==================================================
+
             console.log(
                 "✅ AUDITLY PRO SUBSCRIPTION CREATED:",
                 result
@@ -1042,17 +1050,7 @@ router.post(
                         ?.id,
 
                 confirmationUrl:
-                    result.confirmationUrl
-
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "❌ BILLING UPGRADE ERROR:",
-                error
-      // ==================================================
+          // ==================================================
 // BILLING CALLBACK
 // ==================================================
 // Shopify returns the merchant here after approval.
