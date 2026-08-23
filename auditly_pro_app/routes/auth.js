@@ -1,3 +1,7 @@
+// ==========================================
+// Auditly Pro v2 - Shopify Authentication
+// ==========================================
+
 const express = require("express");
 const router = express.Router();
 
@@ -26,17 +30,29 @@ const HOST =
 const SCOPES =
     process.env.SCOPES;
 
-
 // ==========================================
 // Temporary OAuth State Storage
 // ==========================================
 
 const oauthStates = new Map();
 
+// ==========================================
+// Validate Shopify Shop Domain
+// ==========================================
+
+function isValidShop(shop) {
+
+    if (!shop) {
+        return false;
+    }
+
+    return /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/i
+        .test(shop);
+
+}
 
 // ==========================================
 // Test Route
-// GET /auth/hello
 // ==========================================
 
 router.get("/hello", (req, res) => {
@@ -47,86 +63,133 @@ router.get("/hello", (req, res) => {
 
 });
 
-
 // ==========================================
 // Shopify Install Route
-// GET /auth/install?shop=...
+// GET /auth/install?shop=store.myshopify.com
 // ==========================================
 
 router.get("/install", (req, res) => {
 
     const shop =
-        req.query.shop;
+        String(req.query.shop || "")
+            .trim()
+            .toLowerCase();
 
+    // ======================================
+    // Validate Shop
+    // ======================================
 
-    if (!shop) {
+    if (!isValidShop(shop)) {
+
+        console.error(
+            "❌ INVALID SHOP:",
+            shop
+        );
 
         return res
             .status(400)
             .send(
-                "Missing Shopify shop name"
+                "Invalid Shopify shop name."
             );
 
     }
 
-
     // ======================================
-    // Basic Shopify domain validation
+    // Validate Environment Variables
     // ======================================
 
-    const validShop =
-        /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/i
-            .test(shop);
+    if (
+        !SHOPIFY_API_KEY ||
+        !SHOPIFY_API_SECRET ||
+        !HOST ||
+        !SCOPES
+    ) {
 
-
-    if (!validShop) {
+        console.error(
+            "❌ Missing Shopify environment variables."
+        );
 
         return res
-            .status(400)
+            .status(500)
             .send(
-                "Invalid Shopify shop name"
+                "Auditly Pro is missing required Shopify configuration."
             );
 
     }
 
-
     // ======================================
-    // Create secure OAuth state
+    // Create Secure OAuth State
     // ======================================
 
     const state =
         crypto
-            .randomBytes(16)
+            .randomBytes(32)
             .toString("hex");
 
+    oauthStates.set(state, {
 
-    oauthStates.set(
-        state,
-        {
-            shop: shop,
-            created: Date.now()
-        }
-    );
+        shop:
+            shop,
 
+        created:
+            Date.now()
+
+    });
 
     // ======================================
-    // OAuth callback URL
+    // Remove Old OAuth States
+    // ======================================
+
+    const tenMinutes =
+        10 * 60 * 1000;
+
+    for (
+        const [
+            savedState,
+            stateData
+        ] of oauthStates.entries()
+    ) {
+
+        if (
+            Date.now() -
+            stateData.created >
+            tenMinutes
+        ) {
+
+            oauthStates.delete(
+                savedState
+            );
+
+        }
+
+    }
+
+    // ======================================
+    // OAuth Callback URL
     // ======================================
 
     const redirectUri =
         `${HOST}/auth/callback`;
 
+    // ======================================
+    // Create Shopify Authorization URL
+    // ======================================
 
     /*
-     * Auditly Pro uses an expiring offline
-     * Shopify access token.
+     * IMPORTANT:
      *
      * We intentionally do NOT use:
      *
      * grant_options[]=per-user
      *
+     * Auditly Pro needs offline access because
+     * the server needs to access the merchant's
+     * Shopify store after the merchant leaves
+     * the app.
+     *
+     * expiring=1 is added during the token
+     * exchange below.
      */
-
 
     const installUrl =
         `https://${shop}/admin/oauth/authorize` +
@@ -143,12 +206,10 @@ router.get("/install", (req, res) => {
             state
         )}`;
 
-
     console.log(
         "SHOPIFY INSTALL URL CREATED FOR:",
         shop
     );
-
 
     res.redirect(
         installUrl
@@ -156,9 +217,8 @@ router.get("/install", (req, res) => {
 
 });
 
-
 // ==========================================
-// OAuth Callback
+// Shopify OAuth Callback
 // GET /auth/callback
 // ==========================================
 
@@ -166,15 +226,21 @@ router.get(
     "/callback",
     async (req, res) => {
 
-        const {
-            shop,
-            code,
-            state
-        } = req.query;
+        const shop =
+            String(req.query.shop || "")
+                .trim()
+                .toLowerCase();
 
+        const code =
+            String(req.query.code || "")
+                .trim();
+
+        const state =
+            String(req.query.state || "")
+                .trim();
 
         // ======================================
-        // Validate OAuth parameters
+        // Validate OAuth Parameters
         // ======================================
 
         if (
@@ -183,64 +249,115 @@ router.get(
             !state
         ) {
 
+            console.error(
+                "❌ Missing Shopify OAuth parameters."
+            );
+
             return res
                 .status(400)
-                .send(
-                    "Missing Shopify OAuth information"
-                );
+                .send(`
+                    <h1>
+                        Shopify connection failed.
+                    </h1>
+
+                    <p>
+                        Missing Shopify OAuth information.
+                    </p>
+                `);
 
         }
 
+        // ======================================
+        // Validate Shop Domain
+        // ======================================
+
+        if (!isValidShop(shop)) {
+
+            console.error(
+                "❌ Invalid Shopify shop returned:",
+                shop
+            );
+
+            return res
+                .status(400)
+                .send(`
+                    <h1>
+                        Shopify connection failed.
+                    </h1>
+
+                    <p>
+                        Invalid Shopify store.
+                    </p>
+                `);
+
+        }
 
         // ======================================
-        // Verify OAuth state
+        // Verify OAuth State
         // ======================================
 
         const savedState =
-            oauthStates.get(
-                state
-            );
-
+            oauthStates.get(state);
 
         if (!savedState) {
 
+            console.error(
+                "❌ INVALID OR EXPIRED OAUTH STATE"
+            );
+
             return res
                 .status(403)
-                .send(
-                    "Invalid or expired OAuth state"
-                );
+                .send(`
+                    <h1>
+                        Shopify connection expired.
+                    </h1>
+
+                    <p>
+                        Please return to Auditly Pro
+                        and connect your Shopify store again.
+                    </p>
+                `);
 
         }
 
-
         // ======================================
-        // Make sure the state belongs
-        // to the same Shopify store
+        // Make Sure State Belongs To Same Shop
         // ======================================
 
         if (
             savedState.shop !== shop
         ) {
 
+            console.error(
+                "❌ SHOP MISMATCH DURING OAUTH"
+            );
+
             oauthStates.delete(
                 state
             );
 
-
             return res
                 .status(403)
-                .send(
-                    "OAuth shop validation failed"
-                );
+                .send(`
+                    <h1>
+                        Shopify connection failed.
+                    </h1>
+
+                    <p>
+                        The Shopify store did not match
+                        the original connection request.
+                    </p>
+                `);
 
         }
 
+        // ======================================
+        // State Can Only Be Used Once
+        // ======================================
 
-        // State can only be used once.
         oauthStates.delete(
             state
         );
-
 
         try {
 
@@ -248,10 +365,21 @@ router.get(
                 "🔄 Exchanging Shopify OAuth code..."
             );
 
+            // ==================================
+            // Exchange Authorization Code
+            // ==================================
 
-            // ==================================
-            // Exchange authorization code
-            // ==================================
+            /*
+             * Shopify's authorization-code flow
+             * supports expiring offline tokens.
+             *
+             * expiring=1 tells Shopify to return:
+             *
+             * access_token
+             * refresh_token
+             * expires_in
+             * refresh_token_expires_in
+             */
 
             const tokenBody =
                 new URLSearchParams({
@@ -270,10 +398,11 @@ router.get(
 
                 }).toString();
 
-
             const response =
                 await fetch(
+
                     `https://${shop}/admin/oauth/access_token`,
+
                     {
 
                         method:
@@ -293,38 +422,40 @@ router.get(
                             tokenBody
 
                     }
+
                 );
 
+            // ==================================
+            // Read Shopify Response
+            // ==================================
 
             const tokenData =
                 await response.json();
-
 
             console.log(
                 "SHOPIFY TOKEN RESPONSE RECEIVED"
             );
 
-
             // ==================================
-            // Check Shopify response
+            // Check Shopify Response
             // ==================================
 
-            if (
-                !response.ok
-            ) {
+            if (!response.ok) {
 
                 console.error(
                     "❌ SHOPIFY TOKEN ERROR:",
                     tokenData
                 );
 
-
                 return res
                     .status(500)
                     .json({
 
+                        success:
+                            false,
+
                         error:
-                            "Shopify token exchange failed",
+                            "Shopify token exchange failed.",
 
                         details:
                             tokenData
@@ -333,9 +464,8 @@ router.get(
 
             }
 
-
             // ==================================
-            // Check access token
+            // Check Access Token
             // ==================================
 
             if (
@@ -347,13 +477,15 @@ router.get(
                     tokenData
                 );
 
-
                 return res
                     .status(500)
                     .json({
 
+                        success:
+                            false,
+
                         error:
-                            "Shopify did not return an access token",
+                            "Shopify did not return an access token.",
 
                         details:
                             tokenData
@@ -362,9 +494,8 @@ router.get(
 
             }
 
-
             // ==================================
-            // Check refresh token
+            // Check Refresh Token
             // ==================================
 
             if (
@@ -376,24 +507,25 @@ router.get(
                     tokenData
                 );
 
-
                 return res
                     .status(500)
                     .json({
 
+                        success:
+                            false,
+
                         error:
-                            "Shopify did not return an expiring offline token.",
+                            "Shopify did not return a refresh token.",
 
                         details:
-                            "The Shopify response did not contain refresh_token. Verify that the authorization request is for offline access and that expiring=1 is being sent."
+                            "Verify that expiring=1 is being sent."
 
                     });
 
             }
 
-
             // ==================================
-            // Check access token expiration
+            // Check Access Token Expiration
             // ==================================
 
             if (
@@ -405,10 +537,12 @@ router.get(
                     tokenData
                 );
 
-
                 return res
                     .status(500)
                     .json({
+
+                        success:
+                            false,
 
                         error:
                             "Shopify did not return access token expiration information.",
@@ -420,17 +554,16 @@ router.get(
 
             }
 
-
             // ==================================
-            // Calculate expiration times
+            // Calculate Expiration Times
             // ==================================
 
             const now =
                 Date.now();
 
-
             const expiresAt =
                 new Date(
+
                     now +
                     (
                         Number(
@@ -438,12 +571,11 @@ router.get(
                         ) *
                         1000
                     )
-                ).toISOString();
 
+                ).toISOString();
 
             let refreshTokenExpiresAt =
                 null;
-
 
             if (
                 tokenData.refresh_token_expires_in
@@ -451,6 +583,7 @@ router.get(
 
                 refreshTokenExpiresAt =
                     new Date(
+
                         now +
                         (
                             Number(
@@ -458,19 +591,18 @@ router.get(
                             ) *
                             1000
                         )
+
                     ).toISOString();
 
             }
 
-
             // ==================================
-            // Safe token logging
+            // Safe Token Logging
             // ==================================
 
             console.log(
                 "🔐 SHOPIFY EXPIRING TOKEN RECEIVED"
             );
-
 
             console.log({
 
@@ -497,16 +629,14 @@ router.get(
 
             });
 
-
             // ==================================
-            // Save Shopify store to Supabase
+            // Save Shop To Supabase
             // ==================================
 
             console.log(
                 "💾 SAVING SHOP TO SUPABASE:",
                 shop
             );
-
 
             await saveShop(
 
@@ -522,24 +652,15 @@ router.get(
 
             );
 
-
             console.log(
                 "✅ SHOP SAVED TO SUPABASE:",
                 shop
             );
 
-
             // ==================================
-            // RETURN TO DASHBOARD
-            // ==================================
-            //
             // IMPORTANT:
-            //
-            // We include the Shopify store in
-            // the dashboard URL so dashboard.js
-            // knows which merchant store it is
-            // displaying.
-            //
+            // Return Merchant To Dashboard
+            // WITH SHOP PARAMETER
             // ==================================
 
             const dashboardUrl =
@@ -547,12 +668,10 @@ router.get(
                     shop
                 )}`;
 
-
             console.log(
-                "➡️ RETURNING TO DASHBOARD:",
+                "➡️ RETURNING MERCHANT TO:",
                 dashboardUrl
             );
-
 
             return res.redirect(
                 dashboardUrl
@@ -561,10 +680,9 @@ router.get(
         } catch (error) {
 
             console.error(
-                "❌ OAuth / Supabase ERROR:",
+                "❌ OAUTH / SUPABASE ERROR:",
                 error
             );
-
 
             return res
                 .status(500)
@@ -601,8 +719,8 @@ router.get(
                         </p>
 
                         <p>
-                            Check the Render logs for
-                            the exact error.
+                            Please check the Render logs
+                            for the exact error.
                         </p>
 
                     </body>
@@ -616,10 +734,8 @@ router.get(
     }
 );
 
-
 // ==========================================
 // Authentication Test
-// GET /auth/test
 // ==========================================
 
 router.get(
@@ -644,7 +760,6 @@ router.get(
 
     }
 );
-
 
 // ==========================================
 // Export Router
