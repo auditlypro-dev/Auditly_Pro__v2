@@ -89,7 +89,7 @@ async function getShop(shop) {
 
 
 // ==================================================
-// REFRESH TOKEN
+// REFRESH SHOPIFY TOKEN
 // ==================================================
 
 async function refreshShopifyToken(
@@ -194,14 +194,17 @@ async function refreshShopifyToken(
         new Date(
             now +
             (
-                tokenData.expires_in *
+                Number(
+                    tokenData.expires_in
+                ) *
                 1000
             )
         ).toISOString();
 
 
     let refreshTokenExpiresAt =
-        shopRecord.refresh_token_expires_at;
+        shopRecord.refresh_token_expires_at ||
+        null;
 
 
     if (
@@ -212,7 +215,9 @@ async function refreshShopifyToken(
             new Date(
                 now +
                 (
-                    tokenData.refresh_token_expires_in *
+                    Number(
+                        tokenData.refresh_token_expires_in
+                    ) *
                     1000
                 )
             ).toISOString();
@@ -282,7 +287,7 @@ async function refreshShopifyToken(
 
 
 // ==================================================
-// GET VALID ACCESS TOKEN
+// GET VALID SHOPIFY ACCESS TOKEN
 // ==================================================
 
 async function getValidAccessToken(
@@ -318,11 +323,11 @@ async function getValidAccessToken(
         Date.now();
 
 
+    // Refresh five minutes before expiration.
     const refreshBuffer =
         5 * 60 * 1000;
 
 
-    // Token still valid
     if (
         currentTime <
         (
@@ -331,13 +336,17 @@ async function getValidAccessToken(
         )
     ) {
 
+        console.log(
+            "🔑 Valid Shopify access token ready"
+        );
+
         return shopRecord.access_token;
 
     }
 
 
     console.log(
-        "⏰ Billing token expired or nearly expired."
+        "⏰ Shopify access token is expired or nearly expired."
     );
 
 
@@ -354,7 +363,7 @@ async function getValidAccessToken(
 
 
 // ==================================================
-// SHOPIFY GRAPHQL
+// SHOPIFY GRAPHQL HELPER
 // ==================================================
 
 async function shopifyGraphQL(
@@ -374,6 +383,9 @@ async function shopifyGraphQL(
                 headers: {
 
                     "Content-Type":
+                        "application/json",
+
+                    "Accept":
                         "application/json",
 
                     "X-Shopify-Access-Token":
@@ -400,6 +412,12 @@ async function shopifyGraphQL(
 
     if (!response.ok) {
 
+        console.error(
+            "❌ SHOPIFY GRAPHQL HTTP ERROR:",
+            response.status,
+            data
+        );
+
         throw new Error(
             `Shopify GraphQL HTTP error: ${response.status}`
         );
@@ -413,7 +431,6 @@ async function shopifyGraphQL(
             "❌ SHOPIFY GRAPHQL ERRORS:",
             data.errors
         );
-
 
         throw new Error(
             data.errors
@@ -433,8 +450,77 @@ async function shopifyGraphQL(
 
 
 // ==================================================
-// GET SHOP SUBSCRIPTION STATUS
+// GET ACTIVE AUDITLY PRO SUBSCRIPTION
 // ==================================================
+
+async function getAuditlySubscription(
+    shop,
+    accessToken
+) {
+
+    const query = `
+
+        query GetAuditlySubscription {
+
+            currentAppInstallation {
+
+                activeSubscriptions {
+
+                    id
+                    name
+                    status
+                    createdAt
+                    currentPeriodEnd
+                    trialDays
+
+                }
+
+            }
+
+        }
+
+    `;
+
+
+    const data =
+        await shopifyGraphQL(
+            shop,
+            accessToken,
+            query
+        );
+
+
+    const subscriptions =
+        data
+            ?.data
+            ?.currentAppInstallation
+            ?.activeSubscriptions ||
+        [];
+
+
+    const subscription =
+        subscriptions.find(
+            item =>
+                item.name ===
+                PLAN_NAME
+        );
+
+
+    return {
+
+        subscription:
+            subscription ||
+            null,
+
+        subscriptions
+
+    };
+
+}
+
+
+// ==================================================
+// BILLING STATUS
 // GET /billing/status?shop=...
 // ==================================================
 
@@ -490,6 +576,16 @@ router.get(
             }
 
 
+            console.log(
+                "🔎 Looking up shop in Supabase:",
+                shop
+            );
+
+            console.log(
+                "✅ Shop found in Supabase"
+            );
+
+
             const accessToken =
                 await getValidAccessToken(
                     shop,
@@ -497,59 +593,18 @@ router.get(
                 );
 
 
-            const query = `
-
-                query GetAuditlySubscription {
-
-                    currentAppInstallation {
-
-                        activeSubscriptions {
-
-                            id
-                            name
-                            status
-                            createdAt
-                            currentPeriodEnd
-                            trialDays
-
-                        }
-
-                    }
-
-                }
-
-            `;
-
-
-            const data =
-                await shopifyGraphQL(
+            const {
+                subscription,
+                subscriptions
+            } =
+                await getAuditlySubscription(
                     shop,
-                    accessToken,
-                    query
-                );
-
-
-            const installation =
-                data?.data
-                    ?.currentAppInstallation;
-
-
-            const subscriptions =
-                installation
-                    ?.activeSubscriptions ||
-                [];
-
-
-            const auditlySubscription =
-                subscriptions.find(
-                    subscription =>
-                        subscription.name ===
-                        PLAN_NAME
+                    accessToken
                 );
 
 
             const active =
-                !!auditlySubscription;
+                !!subscription;
 
 
             console.log(
@@ -568,12 +623,12 @@ router.get(
                 active,
 
                 status:
-                    auditlySubscription
+                    subscription
                         ?.status ||
                     "INACTIVE",
 
                 plan:
-                    auditlySubscription
+                    subscription
                         ?.name ||
                     PLAN_NAME,
 
@@ -584,7 +639,7 @@ router.get(
                     TRIAL_DAYS,
 
                 subscription:
-                    auditlySubscription ||
+                    subscription ||
                     null,
 
                 subscriptions
@@ -596,7 +651,7 @@ router.get(
 
             console.error(
                 "❌ BILLING STATUS ERROR:",
-                error.message
+                error
             );
 
 
@@ -621,8 +676,7 @@ router.get(
 
 
 // ==================================================
-// START FREE TRIAL / CREATE SUBSCRIPTION
-// ==================================================
+// START 7-DAY FREE TRIAL
 // POST /billing/upgrade
 // ==================================================
 
@@ -687,65 +741,24 @@ router.post(
 
 
             // ==================================================
-            // FIRST CHECK FOR EXISTING SUBSCRIPTION
+            // CHECK EXISTING ACTIVE SUBSCRIPTION
             // ==================================================
 
-            const statusQuery = `
-
-                query CheckExistingSubscription {
-
-                    currentAppInstallation {
-
-                        activeSubscriptions {
-
-                            id
-                            name
-                            status
-                            createdAt
-                            currentPeriodEnd
-                            trialDays
-
-                        }
-
-                    }
-
-                }
-
-            `;
-
-
-            const statusData =
-                await shopifyGraphQL(
+            const {
+                subscription:
+                    existingSubscription
+            } =
+                await getAuditlySubscription(
                     shop,
-                    accessToken,
-                    statusQuery
+                    accessToken
                 );
 
 
-            const existingSubscriptions =
-                statusData
-                    ?.data
-                    ?.currentAppInstallation
-                    ?.activeSubscriptions ||
-                [];
-
-
-            const existingAuditlySubscription =
-                existingSubscriptions.find(
-                    subscription =>
-                        subscription.name ===
-                        PLAN_NAME
-                );
-
-
-            // ==================================================
-            // ALREADY ACTIVE
-            // ==================================================
-
-            if (existingAuditlySubscription) {
+            if (existingSubscription) {
 
                 console.log(
-                    "ℹ️ AUDITLY PRO ALREADY ACTIVE"
+                    "ℹ️ AUDITLY PRO ALREADY ACTIVE:",
+                    existingSubscription.id
                 );
 
 
@@ -762,7 +775,7 @@ router.post(
                         "Auditly Pro subscription is already active.",
 
                     subscription:
-                        existingAuditlySubscription
+                        existingSubscription
 
                 });
 
@@ -770,7 +783,7 @@ router.post(
 
 
             // ==================================================
-            // CREATE SUBSCRIPTION
+            // CREATE SHOPIFY SUBSCRIPTION
             // ==================================================
 
             const mutation = `
@@ -790,13 +803,17 @@ router.post(
 
                     appSubscriptionCreate(
 
-                        name: $name
+                        name:
+                            $name
 
-                        returnUrl: $returnUrl
+                        returnUrl:
+                            $returnUrl
 
-                        trialDays: $trialDays
+                        trialDays:
+                            $trialDays
 
-                        lineItems: $lineItems
+                        lineItems:
+                            $lineItems
 
                     ) {
 
@@ -826,13 +843,17 @@ router.post(
             `;
 
 
+            const returnUrl =
+                `${HOST}/billing/callback?shop=${encodeURIComponent(shop)}`;
+
+
             const variables = {
 
                 name:
                     PLAN_NAME,
 
                 returnUrl:
-                    `${HOST}/billing/callback?shop=${encodeURIComponent(shop)}`,
+                    returnUrl,
 
                 trialDays:
                     TRIAL_DAYS,
@@ -871,6 +892,26 @@ router.post(
 
             console.log(
                 "💳 CREATING SHOPIFY SUBSCRIPTION..."
+            );
+
+            console.log(
+                "💰 Plan:",
+                `$${PLAN_PRICE}/month`
+            );
+
+            console.log(
+                "🎁 Trial:",
+                `${TRIAL_DAYS} days`
+            );
+
+            console.log(
+                "🔁 Interval:",
+                PLAN_INTERVAL
+            );
+
+            console.log(
+                "↩️ Return URL:",
+                returnUrl
             );
 
 
@@ -929,81 +970,29 @@ router.post(
 
             }
 
-            
-// ==================================================
-// CONFIRMATION URL
-// ==================================================
 
-            
-if (!result.confirmationUrl) {
+            // ==================================================
+            // CONFIRMATION URL
+            // ==================================================
 
-    return res
-        .status(500)
-        .json({
+            if (
+                !result.confirmationUrl
+            ) {
 
-            success: false,
-
-            error:
-                "Shopify did not return a billing confirmation URL."
-
-        });
-
-}
+                console.error(
+                    "❌ SHOPIFY DID NOT RETURN CONFIRMATION URL"
+                );
 
 
-// ==================================================
-// LOG SUBSCRIPTION
-// ==================================================
+                return res
+                    .status(500)
+                    .json({
 
-console.log(
-    "✅ AUDITLY PRO SUBSCRIPTION CREATED:",
-    result
-        .appSubscription
-        ?.id
-);
+                        success: false,
 
-console.log(
-    "🔗 SHOPIFY BILLING CONFIRMATION URL:",
-    result.confirmationUrl
-);
+                        error:
+                            "Shopify did not return a billing confirmation URL."
 
-
-// ==================================================
-// RETURN BILLING INFORMATION
-// ==================================================
-
-return res.json({
-
-    success: true,
-
-    active: false,
-
-    approvalRequired: true,
-
-    message:
-        "Please approve your Auditly Pro subscription in Shopify.",
-
-    plan:
-        PLAN_NAME,
-
-    price:
-        "$27/month",
-
-    trialDays:
-        TRIAL_DAYS,
-
-    interval:
-        PLAN_INTERVAL,
-
-    subscriptionId:
-        result
-            .appSubscription
-            ?.id,
-
-    confirmationUrl:
-        result.confirmationUrl
-
-});
                     });
 
             }
@@ -1014,6 +1003,12 @@ return res.json({
                 result
                     .appSubscription
                     ?.id
+            );
+
+
+            console.log(
+                "🔗 SHOPIFY BILLING CONFIRMATION URL:",
+                result.confirmationUrl
             );
 
 
@@ -1057,35 +1052,14 @@ return res.json({
             console.error(
                 "❌ BILLING UPGRADE ERROR:",
                 error
-            );
 
 
-            return res
-                .status(500)
-                .json({
-
-                    success: false,
-
-                    error:
-                        "Unable to create Shopify subscription",
-
-                    details:
-                        error.message
-
-                });
-
-        }
-
-    }
-);
-
-
-// ==================================================
+                // ==================================================
 // BILLING CALLBACK
 // ==================================================
-// Shopify sends the merchant back here after approval.
-// We verify the subscription instead of blindly assuming
-// that approval occurred.
+// Shopify returns the merchant here after approval.
+// We verify the subscription with Shopify instead of
+// assuming that the approval succeeded.
 // ==================================================
 
 router.get(
@@ -1137,53 +1111,18 @@ router.get(
                 );
 
 
-            const query = `
-
-                query VerifyAuditlySubscription {
-
-                    currentAppInstallation {
-
-                        activeSubscriptions {
-
-                            id
-                            name
-                            status
-                            createdAt
-                            currentPeriodEnd
-                            trialDays
-
-                        }
-
-                    }
-
-                }
-
-            `;
-
-
-            const data =
-                await shopifyGraphQL(
+            const {
+                subscription
+            } =
+                await getAuditlySubscription(
                     shop,
-                    accessToken,
-                    query
+                    accessToken
                 );
 
 
-            const subscriptions =
-                data
-                    ?.data
-                    ?.currentAppInstallation
-                    ?.activeSubscriptions ||
-                [];
-
-
-            const subscription =
-                subscriptions.find(
-                    item =>
-                        item.name ===
-                        PLAN_NAME
-                );
-
+            // ==================================================
+            // SUBSCRIPTION VERIFIED
+            // ==================================================
 
             if (subscription) {
 
@@ -1193,11 +1132,15 @@ router.get(
                 );
 
 
+                const dashboardUrl =
+                    `/dashboard?shop=${encodeURIComponent(shop)}`;
+
+
                 return res.send(`
 
                     <!DOCTYPE html>
 
-                    <html>
+                    <html lang="en">
 
                     <head>
 
@@ -1235,7 +1178,7 @@ router.get(
 
                         <br>
 
-                        <a href="/dashboard">
+                        <a href="${dashboardUrl}">
                             Return to Auditly Pro
                         </a>
 
@@ -1249,14 +1192,24 @@ router.get(
 
 
             // ==================================================
-            // APPROVAL NOT YET ACTIVE
+            // APPROVAL NOT ACTIVE
             // ==================================================
+
+            console.log(
+                "ℹ️ BILLING APPROVAL NOT ACTIVE:",
+                shop
+            );
+
+
+            const pendingDashboardUrl =
+                `/dashboard?shop=${encodeURIComponent(shop)}`;
+
 
             return res.send(`
 
                 <!DOCTYPE html>
 
-                <html>
+                <html lang="en">
 
                 <head>
 
@@ -1284,9 +1237,14 @@ router.get(
                         Auditly Pro subscription.
                     </p>
 
+                    <p>
+                        If you approved the subscription,
+                        please wait a moment and try again.
+                    </p>
+
                     <br>
 
-                    <a href="/dashboard">
+                    <a href="${pendingDashboardUrl}">
                         Return to Auditly Pro
                     </a>
 
@@ -1301,7 +1259,7 @@ router.get(
 
             console.error(
                 "❌ BILLING CALLBACK ERROR:",
-                error.message
+                error
             );
 
 
@@ -1309,19 +1267,50 @@ router.get(
                 .status(500)
                 .send(`
 
-                    <h1>
-                        Billing verification failed
-                    </h1>
+                    <!DOCTYPE html>
 
-                    <p>
-                        ${error.message}
-                    </p>
+                    <html lang="en">
 
-                    <br>
+                    <head>
 
-                    <a href="/dashboard">
-                        Return to Auditly Pro
-                    </a>
+                        <meta charset="UTF-8">
+
+                        <meta
+                            name="viewport"
+                            content="width=device-width, initial-scale=1.0"
+                        >
+
+                        <title>
+                            Auditly Pro Billing Error
+                        </title>
+
+                    </head>
+
+                    <body>
+
+                        <h1>
+                            Billing verification failed
+                        </h1>
+
+                        <p>
+                            Auditly Pro could not verify
+                            your Shopify subscription.
+                        </p>
+
+                        <p>
+                            Please try returning to
+                            Auditly Pro.
+                        </p>
+
+                        <br>
+
+                        <a href="/dashboard">
+                            Return to Auditly Pro
+                        </a>
+
+                    </body>
+
+                    </html>
 
                 `);
 
@@ -1333,7 +1322,6 @@ router.get(
 
 // ==================================================
 // BILLING INFORMATION
-// ==================================================
 // GET /billing
 // ==================================================
 
@@ -1379,7 +1367,7 @@ router.get(
 
 
 // ==================================================
-// EXPORT
+// EXPORT ROUTER
 // ==================================================
 
 module.exports = router;
