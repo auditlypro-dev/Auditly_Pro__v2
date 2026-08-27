@@ -670,8 +670,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         }
 
-                        window.location.href =
-                            data.confirmationUrl;
+                        if (window.top !== window.self) {
+    window.top.location.href = data.confirmationUrl;
+} else {
+    window.location.href = data.confirmationUrl;
+}
 
                         return;
 
