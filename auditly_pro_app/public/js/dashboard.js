@@ -734,205 +734,452 @@ document.addEventListener("DOMContentLoaded", () => {
     // RENDER RECOMMENDATIONS
     // ==========================================
 
-    function renderRecommendations(recommendations) {
+    // ==========================================
+// RENDER AUDIT RESULTS
+// ==========================================
 
-        if (!resultsElement) {
-            return;
-        }
+function renderAuditResults(data) {
 
-        if (
-            !Array.isArray(recommendations) ||
-            recommendations.length === 0
-        ) {
+    if (!resultsElement) {
+        return;
+    }
 
-            return;
+    resultsElement.innerHTML = "";
 
-        }
+    if (!data) {
 
-        const recommendationsHtml =
-            recommendations.map((recommendation) => {
+        resultsElement.innerHTML = `
 
-                if (
-                    typeof recommendation === "string"
-                ) {
+            <div class="audit-section">
 
-                    return `
-                        <div class="recommendation">
-                            💡
-                            ${escapeHtml(recommendation)}
-                        </div>
-                    `;
+                <h3>
+                    Audit Results
+                </h3>
 
+                <p>
+                    No audit results were returned.
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    // ==========================================
+    // AUDIT SCORE
+    // ==========================================
+
+    const score =
+        data.score ??
+        data.auditScore ??
+        data.overallScore;
+
+    if (score !== undefined && score !== null) {
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h2>
+                    Audit Score:
+                    ${escapeHtml(score)}/100
+                </h2>
+
+                ${
+                    data.rating
+                        ? `
+                            <p>
+                                <strong>
+                                    Rating:
+                                </strong>
+                                ${escapeHtml(data.rating)}
+                            </p>
+                          `
+                        : ""
                 }
 
-                const title =
-                    recommendation.title ||
-                    recommendation.name ||
-                    "Recommendation";
+            </div>
 
-                const description =
-                    recommendation.description ||
-                    recommendation.message ||
-                    recommendation.details ||
-                    "";
+        `;
 
-                return `
+    }
 
-                    <div class="recommendation">
+    // ==========================================
+    // SUMMARY
+    // ==========================================
 
-                        <strong>
-                            💡
-                            ${escapeHtml(title)}
-                        </strong>
+    if (
+        data.summary &&
+        typeof data.summary === "object"
+    ) {
 
-                        ${
-                            description
-                                ? `
-                                    <br><br>
-                                    ${escapeHtml(description)}
-                                  `
-                                : ""
-                        }
-
-                    </div>
-
-                `;
-
-            }).join("");
+        const summary =
+            data.summary;
 
         resultsElement.innerHTML += `
 
             <div class="audit-section">
 
                 <h3>
-                    Recommendations
+                    Summary
                 </h3>
 
-                ${recommendationsHtml}
+                <p>
+                    <strong>
+                        Total Products:
+                    </strong>
+                    ${escapeHtml(
+                        summary.totalProducts ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Products With Issues:
+                    </strong>
+                    ${escapeHtml(
+                        summary.productsWithIssues ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Policies Found:
+                    </strong>
+                    ${escapeHtml(
+                        summary.policiesFound ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Policies Missing:
+                    </strong>
+                    ${escapeHtml(
+                        summary.policiesMissing ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Compliance Audit:
+                    </strong>
+                    ${
+                        summary.complianceAuditAvailable
+                            ? "Available"
+                            : "Unavailable"
+                    }
+                </p>
 
             </div>
 
         `;
 
-    }    // ==========================================
-    // RENDER AUDIT RESULTS
+    } else if (
+        data.summary
+    ) {
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h3>
+                    Summary
+                </h3>
+
+                <p>
+                    ${escapeHtml(data.summary)}
+                </p>
+
+            </div>
+
+        `;
+
+    }
+
+    // ==========================================
+    // FINDINGS
     // ==========================================
 
-    function renderAuditResults(data) {
+    renderFindings(
+        data.findings ||
+        data.issues ||
+        []
+    );
 
-        if (!resultsElement) {
-            return;
-        }
+    // ==========================================
+    // RECOMMENDATIONS
+    // ==========================================
 
-        resultsElement.innerHTML = "";
+    renderRecommendations(
+        data.recommendations ||
+        data.recommendation ||
+        []
+    );
 
-        if (!data) {
+    // ==========================================
+    // FALLBACK
+    // ==========================================
 
-            resultsElement.innerHTML = `
+    if (
+        (!Array.isArray(data.findings) ||
+            data.findings.length === 0) &&
+        (!Array.isArray(data.issues) ||
+            data.issues.length === 0) &&
+        (!Array.isArray(data.recommendations) ||
+            data.recommendations.length === 0) &&
+        (!Array.isArray(data.recommendation) ||
+            data.recommendation.length === 0) &&
+        !data.summary &&
+        score === undefined
+    ) {
 
-                <div class="audit-section">
+        resultsElement.innerHTML += `
 
-                    <h3>
-                        Audit Results
-                    </h3>
+            <div class="audit-section">
 
-                    <p>
-                        No audit results were returned.
-                    </p>
+                <h3>
+                    Audit Results
+                </h3>
 
-                </div>
-
-            `;
-
-            return;
-
-        }
-
-        const score =
-            data.score ??
-            data.auditScore ??
-            data.overallScore;
-
-        if (score !== undefined && score !== null) {
-
-            resultsElement.innerHTML += `
-
-                <div class="audit-section">
-
-                    <h2>
-                        Audit Score:
-                        ${escapeHtml(score)}/100
-                    </h2>
-
-                </div>
-
-            `;
-
-        }
-
-        if (data.summary) {
-
-            resultsElement.innerHTML += `
-
-                <div class="audit-section">
-
-                    <h3>
-                        Summary
-                    </h3>
-
-                    <p>
-                        ${escapeHtml(data.summary)}
-                    </p>
-
-                </div>
-
-            `;
-
-        }
-
-        renderFindings(
-            data.findings ||
-            data.issues ||
-            []
-        );
-
-        renderRecommendations(
-            data.recommendations ||
-            data.recommendation ||
-            []
-        );
-
-        if (
-            (!Array.isArray(data.findings) ||
-                data.findings.length === 0) &&
-            (!Array.isArray(data.issues) ||
-                data.issues.length === 0) &&
-            (!Array.isArray(data.recommendations) ||
-                data.recommendations.length === 0) &&
-            (!Array.isArray(data.recommendation) ||
-                data.recommendation.length === 0) &&
-            !data.summary &&
-            score === undefined
-        ) {
-
-            resultsElement.innerHTML += `
-
-                <div class="audit-section">
-
-                    <h3>
-                        Audit Results
-                    </h3>
-
-                    <pre>
+                <pre>
 ${escapeHtml(JSON.stringify(data, null, 2))}
-                    </pre>
+                </pre>
 
-                </div>
+            </div>
 
-            `;
+        `;
 
-        }
+    }
 
+}
+            
+      
+        // ==========================================
+// RENDER AUDIT RESULTS
+// ==========================================
+
+function renderAuditResults(data) {
+
+    if (!resultsElement) {
+        return;
+    }
+
+    resultsElement.innerHTML = "";
+
+    if (!data) {
+
+        resultsElement.innerHTML = `
+
+            <div class="audit-section">
+
+                <h3>
+                    Audit Results
+                </h3>
+
+                <p>
+                    No audit results were returned.
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    // ==========================================
+    // AUDIT SCORE
+    // ==========================================
+
+    const score =
+        data.score ??
+        data.auditScore ??
+        data.overallScore;
+
+    if (score !== undefined && score !== null) {
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h2>
+                    Audit Score:
+                    ${escapeHtml(score)}/100
+                </h2>
+
+                ${
+                    data.rating
+                        ? `
+                            <p>
+                                <strong>
+                                    Rating:
+                                </strong>
+                                ${escapeHtml(data.rating)}
+                            </p>
+                          `
+                        : ""
+                }
+
+            </div>
+
+        `;
+
+    }
+
+    // ==========================================
+    // SUMMARY
+    // ==========================================
+
+    if (
+        data.summary &&
+        typeof data.summary === "object"
+    ) {
+
+        const summary =
+            data.summary;
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h3>
+                    Summary
+                </h3>
+
+                <p>
+                    <strong>
+                        Total Products:
+                    </strong>
+                    ${escapeHtml(
+                        summary.totalProducts ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Products With Issues:
+                    </strong>
+                    ${escapeHtml(
+                        summary.productsWithIssues ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Policies Found:
+                    </strong>
+                    ${escapeHtml(
+                        summary.policiesFound ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Policies Missing:
+                    </strong>
+                    ${escapeHtml(
+                        summary.policiesMissing ?? 0
+                    )}
+                </p>
+
+                <p>
+                    <strong>
+                        Compliance Audit:
+                    </strong>
+                    ${
+                        summary.complianceAuditAvailable
+                            ? "Available"
+                            : "Unavailable"
+                    }
+                </p>
+
+            </div>
+
+        `;
+
+    } else if (
+        data.summary
+    ) {
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h3>
+                    Summary
+                </h3>
+
+                <p>
+                    ${escapeHtml(data.summary)}
+                </p>
+
+            </div>
+
+        `;
+
+    }
+
+    // ==========================================
+    // FINDINGS
+    // ==========================================
+
+    renderFindings(
+        data.findings ||
+        data.issues ||
+        []
+    );
+
+    // ==========================================
+    // RECOMMENDATIONS
+    // ==========================================
+
+    renderRecommendations(
+        data.recommendations ||
+        data.recommendation ||
+        []
+    );
+
+    // ==========================================
+    // FALLBACK
+    // ==========================================
+
+    if (
+        (!Array.isArray(data.findings) ||
+            data.findings.length === 0) &&
+        (!Array.isArray(data.issues) ||
+            data.issues.length === 0) &&
+        (!Array.isArray(data.recommendations) ||
+            data.recommendations.length === 0) &&
+        (!Array.isArray(data.recommendation) ||
+            data.recommendation.length === 0) &&
+        !data.summary &&
+        score === undefined
+    ) {
+
+        resultsElement.innerHTML += `
+
+            <div class="audit-section">
+
+                <h3>
+                    Audit Results
+                </h3>
+
+                <pre>
+${escapeHtml(JSON.stringify(data, null, 2))}
+                </pre>
+
+            </div>
+
+        `;
+
+    }
+
+}
     }
 
     // ==========================================
