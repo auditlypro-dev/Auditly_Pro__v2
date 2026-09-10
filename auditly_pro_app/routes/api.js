@@ -1028,7 +1028,122 @@ router.get(
     }
 );
 
+// ==================================================
+// SHOPIFY CONNECTION STATUS
+// GET /api/shop-status?shop=...
+// ==================================================
 
+router.get(
+    "/shop-status",
+    async (req, res) => {
+
+        try {
+
+            const shop =
+                req.query.shop;
+
+            if (!shop) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        connected: false,
+
+                        error:
+                            "Missing shop parameter"
+
+                    });
+
+            }
+
+            console.log(
+                "🔎 Checking Shopify connection for:",
+                shop
+            );
+
+            const shopRecord =
+                await getShopRecord(
+                    shop
+                );
+
+            if (!shopRecord) {
+
+                return res
+                    .status(404)
+                    .json({
+
+                        connected: false,
+
+                        shop,
+
+                        error:
+                            "Shop not found"
+
+                    });
+
+            }
+
+            const accessToken =
+                await getValidAccessToken(
+                    shop,
+                    shopRecord
+                );
+
+            if (!accessToken) {
+
+                return res
+                    .status(401)
+                    .json({
+
+                        connected: false,
+
+                        shop,
+
+                        error:
+                            "No valid Shopify access token"
+
+                    });
+
+            }
+
+            return res.json({
+
+                connected: true,
+
+                success: true,
+
+                shop
+
+            });
+
+        } catch (error) {
+
+            console.error(
+                "❌ Shopify connection check failed:",
+                error.message
+            );
+
+            return res
+                .status(500)
+                .json({
+
+                    connected: false,
+
+                    success: false,
+
+                    error:
+                        "Unable to verify Shopify connection",
+
+                    details:
+                        error.message
+
+                });
+
+        }
+
+    }
+);
 // ==================================================
 // API TEST
 // GET /api/test
