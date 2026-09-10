@@ -988,6 +988,13 @@ router.get(
 // hosted App Pricing page.
 // ==================================================
 
+    // ==================================================
+// GET /billing/upgrade?shop=...
+//
+// Opens Shopify's hosted App Pricing page.
+// This route does NOT create a subscription.
+// ==================================================
+
 router.get(
     "/upgrade",
     async (req, res) => {
@@ -997,113 +1004,63 @@ router.get(
             const shop =
                 req.query.shop;
 
-
             if (!shop) {
 
                 return res
                     .status(400)
                     .json({
-
                         success: false,
-
                         error:
                             "Missing shop parameter"
-
                     });
 
             }
 
+            if (!shop.endsWith(".myshopify.com")) {
+
+                return res
+                    .status(400)
+                    .json({
+                        success: false,
+                        error:
+                            "Invalid Shopify shop domain."
+                    });
+
+            }
 
             console.log(
                 "💳 OPENING AUDITLY PRO SHOPIFY APP PRICING:",
                 shop
             );
 
-
             const shopRecord =
                 await getShop(shop);
-
 
             if (!shopRecord) {
 
                 return res
                     .status(404)
                     .json({
-
                         success: false,
-
                         error:
                             "Shop not found. Connect Shopify first."
-
                     });
 
             }
 
-
             // --------------------------------------------------
-            // Check current subscription first.
-            // --------------------------------------------------
-
-            const accessToken =
-                await getValidAccessToken(
-                    shop,
-                    shopRecord
-                );
-
-
-            const shopId =
-                await getShopGid(
-                    shop,
-                    accessToken
-                );
-
-
-            const subscription =
-                await getAppPricingSubscription(
-                    shopId
-                );
-
-
-            if (subscription) {
-
-                console.log(
-                    "ℹ️ AUDITLY PRO ALREADY ACTIVE"
-                );
-
-
-                return res.json({
-
-                    success: true,
-
-                    active: true,
-
-                    alreadySubscribed:
-                        true,
-
-                    message:
-                        "Auditly Pro is already active.",
-
-                    subscription:
-                        subscription
-
-                });
-
-            }
-
-
-            // --------------------------------------------------
-            // Redirect merchant to Shopify-hosted pricing.
+            // Do NOT call the Partner API here.
+            // Simply send the merchant to Shopify's hosted
+            // App Pricing page.
             // --------------------------------------------------
 
             const pricingUrl =
                 getPricingUrl(shop);
 
-
             console.log(
                 "➡️ REDIRECTING TO SHOPIFY APP PRICING:",
                 pricingUrl
             );
-
 
             return res.redirect(
                 pricingUrl
@@ -1116,25 +1073,20 @@ router.get(
                 error
             );
 
-
             return res
                 .status(500)
                 .json({
-
                     success: false,
-
                     error:
                         "Unable to open Shopify App Pricing.",
-
                     details:
                         error.message
-
                 });
 
         }
 
     }
-);
+);                    
 
 
 // ==================================================
