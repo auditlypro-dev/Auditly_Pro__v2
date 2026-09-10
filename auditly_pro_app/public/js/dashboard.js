@@ -533,61 +533,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
               // ==========================================
-    // START 7-DAY FREE TRIAL
     // ==========================================
+// START 7-DAY FREE TRIAL
+// ==========================================
 
-    if (upgradeButton) {
+if (upgradeButton) {
 
-        upgradeButton.addEventListener(
-            "click",
-            async () => {
+    upgradeButton.addEventListener(
+        "click",
+        () => {
 
-                console.log(
-                    "🚀 Start 7-Day Free Trial clicked"
+            console.log(
+                "🚀 Start 7-Day Free Trial clicked"
+            );
+
+            if (!hasValidShop()) {
+
+                console.error(
+                    "❌ Cannot start trial: no valid Shopify shop."
                 );
-
-                if (!hasValidShop()) {
-
-                    console.error(
-                        "❌ Cannot start trial: no valid Shopify shop."
-                    );
-
-                    if (billingMessageElement) {
-
-                        billingMessageElement.innerHTML = `
-
-                            <div>
-
-                                🔴
-                                <strong>
-                                    Unable to start your
-                                    7-day free trial.
-                                </strong>
-
-                                <br><br>
-
-                                Auditly Pro could not identify
-                                your Shopify store.
-
-                                <br><br>
-
-                                Please open Auditly Pro from
-                                your Shopify Admin.
-
-                            </div>
-
-                        `;
-
-                    }
-
-                    return;
-
-                }
-
-                upgradeButton.disabled = true;
-
-                upgradeButton.innerHTML =
-                    "🔄 Starting 7-Day Free Trial...";
 
                 if (billingMessageElement) {
 
@@ -595,14 +559,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         <div>
 
-                            🔄
+                            🔴
                             <strong>
-                                Connecting to Shopify billing...
+                                Unable to start your
+                                7-day free trial.
                             </strong>
 
                             <br><br>
 
-                            Please wait.
+                            Auditly Pro could not identify
+                            your Shopify store.
+
+                            <br><br>
+
+                            Please open Auditly Pro from
+                            your Shopify Admin.
 
                         </div>
 
@@ -610,35 +581,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 }
 
-                try {
+                return;
 
-                    const response =
-                        await fetch(
-                            `/billing/upgrade?shop=${encodeURIComponent(shop)}`,
-                            {
-                                method: "POST",
+            }
 
-                                headers: {
-                                    "Content-Type":
-                                        "application/json"
-                                },
+            upgradeButton.disabled = true;
 
-                                body:
-                                    JSON.stringify({
-                                        shop: shop
-                                    })
-                            }
-                        );
+            upgradeButton.innerHTML =
+                "🔄 Opening Shopify Billing...";
 
-                    const data =
-                        await response.json();
+            if (billingMessageElement) {
 
-                    console.log(
-                        "💳 Billing upgrade response:",
-                        data
-                    );
+                billingMessageElement.innerHTML = `
 
-                    // ==================================
+                    <div>
+
+                        🔄
+                        <strong>
+                            Opening Shopify billing...
+                        </strong>
+
+                        <br><br>
+
+                        You will be taken to Shopify to
+                        start your 7-day free trial.
+
+                    </div>
+
+                `;
+
+            }
+
+            console.log(
+                "➡️ Opening Auditly Pro Shopify pricing:",
+                shop
+            );
+
+            const billingUrl =
+                `/billing/upgrade?shop=${encodeURIComponent(shop)}`;
+
+            // Open the billing route as a TOP-LEVEL page.
+            // Auditly Pro runs inside Shopify's embedded app frame.
+
+            if (window.top !== window.self) {
+
+                window.top.location.href =
+                    billingUrl;
+
+            } else {
+
+                window.location.href =
+                    billingUrl;
+
+            }
+
+        }
+    );
+
+}                    // ==================================
                     // SHOPIFY APPROVAL PAGE
                     // ==================================
 
@@ -647,38 +647,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         data.success === true &&
                         data.confirmationUrl
                     ) {
-
-                        if (billingMessageElement) {
-
-                            billingMessageElement.innerHTML = `
-
-                                <div>
-
-                                    🟢
-                                    <strong>
-                                        Your 7-day free trial is ready!
-                                    </strong>
-
-                                    <br><br>
-
-                                    Redirecting you to Shopify
-                                    to approve the subscription...
-
-                                </div>
-
-                            `;
-
-                        }
-
-                        if (window.top !== window.self) {
-    window.top.location.href = data.confirmationUrl;
-} else {
-    window.location.href = data.confirmationUrl;
-}
-
-                        return;
-
-                    }
 
                     // ==================================
                     // ALREADY ACTIVE
